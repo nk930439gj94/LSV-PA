@@ -1,0 +1,16 @@
+original:
+    i/o: 9/5, lat: 0, nd: 8, edge: 24, cube: 28, lev: 4
+
+aig:
+    i/o: 9/5, lat: 0, nd: 8, edge: 24, aig: 52, lev: 4
+strash:
+    i/o: 9/5, lat: 0, and: 44, lev: 13
+
+bdd:
+    i/o: 9/5, lat: 0, nd: 8, edge: 24, bdd: 28, lev: 4
+collapse:
+    i/o: 9/5, lat: 0, nd: 5, edge: 33, bdd: 43, lev: 1
+
+
+It looks like command aig and bdd only convert each node in original network into aig and bdd representative without changing the topology of nodes.
+On the other hand, command strash and collapse change whole network into aig and bdd format.
