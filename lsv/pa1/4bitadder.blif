@@ -19,3 +19,4 @@
 .subckt fulladder a=A2 b=B2 cin=C2 s=S2 cout=C3
 .subckt fulladder b=B1 a=A1 cin=C1 s=S1 cout=C2
 .subckt fulladder a=A0 b=B0 cin=CIN s=S0 cout=C1
+.end
