@@ -61,34 +61,26 @@ usage:
   return 1;
 }
 
-bool sort_id_compare(const Abc_Obj_t** a, const Abc_Obj_t** b) {
-  return 
+bool sort_id_compare(Abc_Obj_t** a, Abc_Obj_t** b) {
+  return Abc_ObjId(*a) > Abc_ObjId(*b);
 }
 
 void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
-  Abc_Obj_t* pObj;
+  Abc_Obj_t* node;
   int i;
   int a = 1;
-  Abc_NtkForEachNode(pNtk, pObj, i) {
-    // printf("Object Id = %d, name = %s\n", Abc_ObjId(pObj), Abc_ObjName(pObj));
-    // Abc_Obj_t* pFanin;
-    // int j;
-    // Abc_ObjForEachFanin(pObj, pFanin, j) {
-    //   printf("  Fanin-%d: Id = %d, name = %s\n", j, Abc_ObjId(pFanin), Abc_ObjName(pFanin));
-    // }
+  Abc_NtkForEachNode(pNtk, node, i) {
     if(!Abc_NtkHasSop(pNtk)) continue;
-    printf("node %s:\n", Abc_ObjName(pObj));
-    char* sop = (char*)pObj->pData;
+    printf("node %s:\n", Abc_ObjName(node));
+    char* sop = (char*)node->pData;
     int unate_info_n = 0, unate_info_p = -1, phase_info_n = 0, phase_info_p = 0;
     int j = 0;
     int b;
-    printf(sop);
+    // printf(sop);
     while(sop[j] != '\0') {
       if(sop[j] == ' ') {
-        // printf("and: %d\n", phase_info_n);
-        // printf("or: %d\n", phase_info_p);
         ++j;
-        assert(sop[j] == '0' or sop[j] == '1');
+        assert(sop[j] == '0' || sop[j] == '1');
         b = (int(sop[j]) - int('0'));
         phase_info_n = phase_info_n << 1;
         phase_info_p = phase_info_p << 1;
@@ -101,7 +93,6 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
         ++j;
       }
       else {
-        // printf("%c\n", sop[j]);
         if(sop[j] == '-') {
           phase_info_n = phase_info_n << 1;
           phase_info_p = phase_info_p << 1;
@@ -117,23 +108,56 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
         ++j;
       }
     }
-    // printf("or : %d\n", unate_info_n);
-    // printf("and: %d\n", unate_info_p);
 
-    int nFanins = Abc_ObjFaninNum(pObj);
+    int nFanins = Abc_ObjFaninNum(node);
     Vec_Ptr_t* unate_vars_n = Vec_PtrAlloc(nFanins), *unate_vars_p = Vec_PtrAlloc(nFanins), *binate_vars = Vec_PtrAlloc(nFanins);
     Abc_Obj_t* pFanin;
     int k;
     bool nu, pu;
-    Abc_ObjForEachFanin(pObj, pFanin, k){
-      nu = !( ( unate_info_n >> (nFanins - k -1) ) | 0x0 );
-      pu = ( unate_info_p >> (nFanins - k - 1) & 0x1 );
-      if(nu) Vec_PtrPush(unate_vars_n, pFanin);
-      if(pu) Vec_PtrPush(unate_vars_p, pFanin);
+    assert( (unate_info_n & 0x1 ) == (unate_info_p & 0x1) );
+    bool onset = unate_info_n & 0x1;
+    Abc_ObjForEachFanin(node, pFanin, k){
+      nu = !( ( unate_info_n >> (nFanins - k) ) | 0x0 );
+      pu = ( unate_info_p >> (nFanins - k) & 0x1 );
+      if(onset) {
+        if(nu) Vec_PtrPush(unate_vars_n, pFanin);
+        if(pu) Vec_PtrPush(unate_vars_p, pFanin);
+      }
+      else {
+        if(nu) Vec_PtrPush(unate_vars_p, pFanin);
+        if(pu) Vec_PtrPush(unate_vars_n, pFanin);
+      }
       if(!nu && !pu) Vec_PtrPush(binate_vars, pFanin);
     }
-    Vec_PtrSort(unate_vars_n, )
+    Vec_PtrSort(unate_vars_n, (int(*)())sort_id_compare);
+    Vec_PtrSort(unate_vars_p, (int(*)())sort_id_compare);
+    Vec_PtrSort(binate_vars, (int(*)())sort_id_compare);
 
+    Abc_Obj_t* entry;
+    if(Vec_PtrSize(unate_vars_p)) {
+      printf("+unate inputs: ");
+      Vec_PtrForEachEntry(Abc_Obj_t*, unate_vars_p, entry, k){
+        if(k) printf(",");
+        printf("%s", Abc_ObjName(entry));
+      }
+      printf("\n");
+    }
+    if(Vec_PtrSize(unate_vars_n)) {
+      printf("-unate inputs: ");
+      Vec_PtrForEachEntry(Abc_Obj_t*, unate_vars_n, entry, k){
+        if(k) printf(",");
+        printf("%s", Abc_ObjName(entry));
+      }
+      printf("\n");
+    }
+    if(Vec_PtrSize(binate_vars)) {
+      printf("binate inputs: ");
+      Vec_PtrForEachEntry(Abc_Obj_t*, binate_vars, entry, k){
+        if(k) printf(",");
+        printf("%s", Abc_ObjName(entry));
+      }
+      printf("\n");
+    }
   }
 }
 
