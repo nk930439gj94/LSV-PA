@@ -158,6 +158,11 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
       }
       printf("\n");
     }
+    printf("\n");
+
+    Vec_PtrFree(unate_vars_n);
+    Vec_PtrFree(unate_vars_p);
+    Vec_PtrFree(binate_vars);
   }
 }
 
