@@ -116,7 +116,7 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
     assert( (unate_info_n & 0x1 ) == (unate_info_p & 0x1) );
     bool onset = unate_info_n & 0x1;
     Abc_ObjForEachFanin(node, pFanin, k){
-      nu = !( ( unate_info_n >> (nFanins - k) ) | 0x0 );
+      nu = ~( ( unate_info_n >> (nFanins - k) ) | (-1 << 1) );
       pu = ( unate_info_p >> (nFanins - k) & 0x1 );
       if(onset) {
         if(nu) Vec_PtrPush(unate_vars_n, pFanin);
@@ -157,7 +157,6 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
       }
       printf("\n");
     }
-    printf("\n");
 
     Vec_PtrFree(unate_vars_n);
     Vec_PtrFree(unate_vars_p);
