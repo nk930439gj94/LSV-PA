@@ -68,7 +68,6 @@ bool sort_id_compare(Abc_Obj_t** a, Abc_Obj_t** b) {
 void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
   Abc_Obj_t* node;
   int i;
-  int a = 1;
   Abc_NtkForEachNode(pNtk, node, i) {
     if(!Abc_NtkHasSop(pNtk)) continue;
     printf("node %s:\n", Abc_ObjName(node));
