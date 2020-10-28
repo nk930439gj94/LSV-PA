@@ -61,8 +61,9 @@ usage:
   return 1;
 }
 
-bool sort_id_compare(Abc_Obj_t** a, Abc_Obj_t** b) {
-  return Abc_ObjId(*a) > Abc_ObjId(*b);
+int sort_id_compare(Abc_Obj_t** a, Abc_Obj_t** b) {
+  if(Abc_ObjId(*a) > Abc_ObjId(*b)) return 1;
+  else return -1;
 }
 
 void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
@@ -75,7 +76,6 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
     int unate_info_n = 0, unate_info_p = -1, phase_info_n = 0, phase_info_p = 0;
     int j = 0;
     int b;
-    // printf(sop);
     while(sop[j] != '\0') {
       if(sop[j] == ' ') {
         ++j;
