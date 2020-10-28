@@ -71,6 +71,7 @@ void Lsv_PrintSopUnate(Abc_Ntk_t* pNtk) {
   int i;
   Abc_NtkForEachNode(pNtk, node, i) {
     if(!Abc_NtkHasSop(pNtk)) continue;
+    if(!Abc_ObjFaninNum(node)) continue;
     printf("node %s:\n", Abc_ObjName(node));
     char* sop = (char*)node->pData;
     int unate_info_n = 0, unate_info_p = -1, phase_info_n = 0, phase_info_p = 0;
