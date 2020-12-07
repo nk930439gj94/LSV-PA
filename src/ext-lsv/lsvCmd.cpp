@@ -1,6 +1,7 @@
 #include "base/abc/abc.h"
 #include "base/main/main.h"
 #include "base/main/mainInt.h"
+#include "sat/cnf/cnf.h"
 
 static int Lsv_CommandPrintNodes(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv);
@@ -187,6 +188,42 @@ int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv) {
 usage:
   Abc_Print(-2, "usage: lsv_print_sopunate [-h]\n");
   Abc_Print(-2, "\t        prints the unate information for each node whose function is expressed in the SOP form\n");
+  Abc_Print(-2, "\t-h    : print the command usage\n");
+  return 1;
+}
+
+void Lsv_PrintPoUnate(Abc_Ntk_t* pNtk) {
+  Aig_Man_t * pMan;
+  assert( Abc_NtkIsStrash(pNtk) );
+  assert( Abc_NtkLatchNum(pNtk) == 0 );
+
+  pMan = Abc_NtkToDar( pNtk, 0, 0 );
+
+  Cnf_Dat_t *pCnf = Cnf_Derive( pMan, Aig_ManCoNum(pMan) );
+}
+
+int Lsv_CommandPrintPoUnate(Abc_Frame_t* pAbc, int argc, char** argv) {
+  Abc_Ntk_t* pNtk = Abc_FrameReadNtk(pAbc);
+  int c;
+  Extra_UtilGetoptReset();
+  while ((c = Extra_UtilGetopt(argc, argv, "h")) != EOF) {
+    switch (c) {
+      case 'h':
+        goto usage;
+      default:
+        goto usage;
+    }
+  }
+  if (!pNtk) {
+    Abc_Print(-1, "Empty network.\n");
+    return 1;
+  }
+  Lsv_PrintPoUnate(pNtk);
+  return 0;
+
+usage:
+  Abc_Print(-2, "usage: lsv_print_pounate [-h]\n");
+  Abc_Print(-2, "\t        print the unate information for each primary output in terms of all primary inputs\n");
   Abc_Print(-2, "\t-h    : print the command usage\n");
   return 1;
 }
