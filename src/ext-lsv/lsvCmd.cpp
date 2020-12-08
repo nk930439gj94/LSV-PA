@@ -246,6 +246,12 @@ void Lsv_PrintPoUnate(Abc_Ntk_t* pNtk) {
 
     // solve for each Pi
     Abc_NtkForEachPi(pCone, pPi, j) {
+      if(!Abc_NodeIsTravIdCurrent(pPi)){
+        Vec_PtrPush(p_unate_vars, pPi);
+        Vec_PtrPush(n_unate_vars, pPi);
+        continue;
+      }
+
       assumptions[j] = toLitCond(enablerId_Start + j, 1);
 
       assumptions[nPi] = toLitCond(pCnf_0->pVarNums[Aig_ObjId((Aig_Obj_t*)pPi->pCopy)], 1);
