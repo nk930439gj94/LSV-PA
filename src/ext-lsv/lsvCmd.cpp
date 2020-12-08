@@ -219,7 +219,6 @@ void Lsv_PrintPoUnate(Abc_Ntk_t* pNtk) {
     pCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(Abc_ObjFanin0(pPo)), 1);
     pTopNode = Abc_ObjFanin0(Abc_NtkPo(pCone, 0));
     neg = Abc_ObjFaninC0(pPo);
-    assert(Abc_NtkPiNum(pCone) == Abc_NtkPiNum(pNtk));
     pMan = Abc_NtkToDar(pCone, 0, 0);
 
     // create two cnf
