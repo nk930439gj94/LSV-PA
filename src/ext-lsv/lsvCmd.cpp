@@ -6,6 +6,7 @@
 static int Lsv_CommandPrintNodes(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintPoUnate(Abc_Frame_t* pAbc, int argc, char** argv);
+static int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv);
 
 extern "C" Aig_Man_t* Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
 
@@ -13,6 +14,7 @@ void init(Abc_Frame_t* pAbc) {
   Cmd_CommandAdd(pAbc, "LSV", "lsv_print_nodes", Lsv_CommandPrintNodes, 0);
   Cmd_CommandAdd(pAbc, "LSV", "lsv_print_sopunate", Lsv_CommandPrintSopUnate, 0);
   Cmd_CommandAdd(pAbc, "LSV", "lsv_print_pounate", Lsv_CommandPrintPoUnate, 0);
+  Cmd_CommandAdd(pAbc, "LSV", "lsv_esop", Lsv_CommandEsop, 0);
 }
 
 void destroy(Abc_Frame_t* pAbc) {}
@@ -346,4 +348,12 @@ usage:
   Abc_Print(-2, "\t        print the unate information for each primary output in terms of all primary inputs\n");
   Abc_Print(-2, "\t-h    : print the command usage\n");
   return 1;
+}
+
+void Lsv_Esop(){
+  
+}
+
+int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv) {
+
 }
