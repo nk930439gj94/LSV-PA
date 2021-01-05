@@ -10,17 +10,13 @@ static int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv);
 
 extern "C" Aig_Man_t* Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
 
-static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone) {
-  Vec_Ptr_t* vPiMapping = Vec_PtrStart(Abc_NtkPiNum(pNtkCone));
-  Abc_Obj_t* pPi;
-  int j;
-  Abc_NtkForEachPi(pNtkCone, pPi, j) {
-    Vec_PtrWriteEntry(vPiMapping, j, Abc_NtkFindCi(pNtk, Abc_ObjName(pPi)));
-  }
-  return vPiMapping;
-}
+static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone);
 
-static Abc_Ntk_t* cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
+#define AigNodeThreshold 20
+class CofNode;
+static void lsv_CofactorTree(Abc_Ntk_t* pNtk);
+static void lsv_CofactorTree_rec(CofNode* n, Abc_Ntk_t* pNtk_root);
+static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 
 void init(Abc_Frame_t* pAbc) {
   Cmd_CommandAdd(pAbc, "LSV", "lsv_print_nodes", Lsv_CommandPrintNodes, 0);
@@ -363,8 +359,8 @@ usage:
 }
 
 void lsv_esop(Abc_Ntk_t* pNtk) {
-  Abc_Obj_t* pPo, * pPi;
-  int i, j;
+  Abc_Obj_t* pPo;
+  int i;
   Abc_Ntk_t* pNtkCone;
   Vec_Ptr_t* vPiMapping;
   Abc_NtkForEachPo(pNtk, pPo, i) {
@@ -372,9 +368,7 @@ void lsv_esop(Abc_Ntk_t* pNtk) {
     if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
     vPiMapping = collectPiMapping(pNtk, pNtkCone);
 
-    Abc_NtkForEachPi(pNtk, pPi, j) {
-      cofactor(pNtk, false, j);
-    }
+    lsv_CofactorTree(pNtkCone);
 
     Vec_PtrFree(vPiMapping);
     Abc_NtkDelete(pNtkCone);
@@ -413,7 +407,75 @@ usage:
 
 
 
-Abc_Ntk_t* cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
+
+class CofNode
+{
+public:
+  CofNode(Abc_Ntk_t* pNtk) {
+    _pNtk = pNtk;
+    _dvar = NULL; _vPiMapping = NULL;
+    _l = NULL; _r = NULL;
+  }
+  Abc_Ntk_t* _pNtk;
+  Abc_Obj_t* _dvar;
+  Vec_Ptr_t* _vPiMapping;
+  CofNode* _l, * _r;
+};
+
+void lsv_CofactorTree(Abc_Ntk_t* pNtk) {
+  CofNode* n = new CofNode(pNtk);
+  lsv_CofactorTree_rec(n, pNtk);
+}
+
+void lsv_CofactorTree_rec(CofNode* n, Abc_Ntk_t* pNtk_root) {
+  Abc_Ntk_t* pNtk = n->_pNtk;
+  bool isRoot = (pNtk == pNtk_root);
+  if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
+    n->_vPiMapping = collectPiMapping(pNtk_root, pNtk);
+    return;
+  }
+  Abc_Obj_t* pPi, *pPi_min;
+  int i ,i_min = 0, min = __INT_MAX__, tmp;
+  Abc_Ntk_t* pLNtk, * pRNtk;
+  Vec_Ptr_t* CofNtks = Vec_PtrStart(2*Abc_NtkPiNum(pNtk));
+  Abc_NtkForEachPi(pNtk, pPi, i){
+    pLNtk = Cofactor(pNtk, true, i);
+    pRNtk = Cofactor(pNtk, false, i);
+    Vec_PtrWriteEntry(CofNtks, 2*i, pLNtk);
+    Vec_PtrWriteEntry(CofNtks, 2*i+1, pRNtk);
+    tmp = Abc_NtkNodeNum(pLNtk) + Abc_NtkNodeNum(pRNtk);
+    if(tmp < min){
+      pPi_min = pPi;
+      i_min = i;
+      min = tmp;
+    }
+  }
+
+  n->_dvar = pPi_min;
+  if(!isRoot){
+    Abc_NtkDelete(pNtk);
+    n->_pNtk = 0;
+  }
+  n->_l = new CofNode((Abc_Ntk_t*)Vec_PtrEntry(CofNtks, 2*i));
+  n->_r = new CofNode((Abc_Ntk_t*)Vec_PtrEntry(CofNtks, 2*i+1));
+  Vec_PtrForEachEntry(Abc_Ntk_t*, CofNtks, pLNtk, i){
+    if((i>>1) == i_min) continue;
+    Abc_NtkDelete(pLNtk);
+  }
+  Vec_PtrFree(CofNtks);
+}
+
+static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone) {
+  Vec_Ptr_t* vPiMapping = Vec_PtrStart(Abc_NtkPiNum(pNtkCone));
+  Abc_Obj_t* pPi;
+  int j;
+  Abc_NtkForEachPi(pNtkCone, pPi, j) {
+    Vec_PtrWriteEntry(vPiMapping, j, Abc_NtkFindCi(pNtk, Abc_ObjName(pPi)));
+  }
+  return vPiMapping;
+}
+
+Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
   Abc_Ntk_t* cof = Abc_NtkDup(pNtk);
   Vec_Ptr_t* vNodes;
   Abc_Obj_t *pObj, *pTmp, *pFanin;
