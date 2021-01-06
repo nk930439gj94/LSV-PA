@@ -362,16 +362,13 @@ usage:
 }
 
 void lsv_esop(Abc_Ntk_t* pNtk) {
-  Abc_Obj_t* pPo;
-  int i;
+  Abc_Obj_t* pPo, * p;
+  int i, j;
   Abc_Ntk_t* pNtkCone;
   Abc_NtkForEachPo(pNtk, pPo, i) {
     pNtkCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(pPo), 0);
     if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
 
-    // Abc_NtkShow(pNtkCone, 0, 0, 1);
-    Abc_NtkShow(Cofactor(pNtkCone, 0, 0), 0, 0, 1);
-    exit(-1);
 
     lsv_CofactorTree(pNtkCone);
 
@@ -477,7 +474,7 @@ Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone) {
 }
 
 Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
-  Abc_Ntk_t* pCof = Abc_NtkDup(pNtk);
+  Abc_Ntk_t* pCof = Abc_NtkDup(pNtk), *pNtkRes;
   Vec_Ptr_t* vNodes;
   Abc_Obj_t *pObj, *pNext, *pFanin;
   int i;
@@ -518,6 +515,7 @@ Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
     Abc_ObjPatchFanin(pObj, pFanin, pNext);
   }
 
-  Abc_NtkStrash(pCof, 0, 1, 0);
-  return pCof;
+  pNtkRes = Abc_NtkStrash(pCof, 0, 1, 0);
+  Abc_NtkDelete(pCof);
+  return pNtkRes;
 }
