@@ -8,7 +8,10 @@ static int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintPoUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv);
 
-extern "C" Aig_Man_t* Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
+extern "C" Aig_Man_t* Abc_NtkToDar(Abc_Ntk_t* pNtk, int fExors, int fRegisters);
+extern "C" Abc_Ntk_t* Abc_NtkStrash(Abc_Ntk_t* pNtk, int fAllNodes, int fCleanup, int fRecord);
+extern "C" void Abc_NtkShow(Abc_Ntk_t* pNtk0, int fGateNames, int fSeq, int fUseReverse);
+extern "C" Abc_Ntk_t* Abc_NtkCollapse(Abc_Ntk_t* pNtk, int fBddSizeMax, int fDualRail, int fReorder, int fReverse, int fDumpOrder, int fVerbose);
 
 static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone);
 
@@ -362,15 +365,16 @@ void lsv_esop(Abc_Ntk_t* pNtk) {
   Abc_Obj_t* pPo;
   int i;
   Abc_Ntk_t* pNtkCone;
-  Vec_Ptr_t* vPiMapping;
   Abc_NtkForEachPo(pNtk, pPo, i) {
     pNtkCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(pPo), 0);
     if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
-    vPiMapping = collectPiMapping(pNtk, pNtkCone);
+
+    // Abc_NtkShow(pNtkCone, 0, 0, 1);
+    Abc_NtkShow(Cofactor(pNtkCone, 0, 0), 0, 0, 1);
+    exit(-1);
 
     lsv_CofactorTree(pNtkCone);
 
-    Vec_PtrFree(vPiMapping);
     Abc_NtkDelete(pNtkCone);
   }
 }
@@ -435,37 +439,34 @@ void lsv_CofactorTree_rec(CofNode* n, Abc_Ntk_t* pNtk_root) {
     return;
   }
   Abc_Obj_t* pPi, *pPi_min;
-  int i ,i_min = 0, min = __INT_MAX__, tmp;
-  Abc_Ntk_t* pLNtk, * pRNtk;
-  Vec_Ptr_t* CofNtks = Vec_PtrStart(2*Abc_NtkPiNum(pNtk));
+  int i, min = __INT_MAX__, tmp;
+  Abc_Ntk_t* pLNtk, * pRNtk, * pLNtk_min, * pRNtk_min;
   Abc_NtkForEachPi(pNtk, pPi, i){
     pLNtk = Cofactor(pNtk, true, i);
     pRNtk = Cofactor(pNtk, false, i);
-    Vec_PtrWriteEntry(CofNtks, 2*i, pLNtk);
-    Vec_PtrWriteEntry(CofNtks, 2*i+1, pRNtk);
     tmp = Abc_NtkNodeNum(pLNtk) + Abc_NtkNodeNum(pRNtk);
     if(tmp < min){
+      if(i) {
+        Abc_NtkDelete(pLNtk_min);
+        Abc_NtkDelete(pRNtk_min);
+      }
+      pLNtk_min = pLNtk;
+      pRNtk_min = pRNtk;
       pPi_min = pPi;
-      i_min = i;
       min = tmp;
     }
   }
 
-  n->_dvar = pPi_min;
   if(!isRoot){
     Abc_NtkDelete(pNtk);
     n->_pNtk = 0;
   }
-  n->_l = new CofNode((Abc_Ntk_t*)Vec_PtrEntry(CofNtks, 2*i));
-  n->_r = new CofNode((Abc_Ntk_t*)Vec_PtrEntry(CofNtks, 2*i+1));
-  Vec_PtrForEachEntry(Abc_Ntk_t*, CofNtks, pLNtk, i){
-    if((i>>1) == i_min) continue;
-    Abc_NtkDelete(pLNtk);
-  }
-  Vec_PtrFree(CofNtks);
+  n->_dvar = pPi_min;
+  n->_l = new CofNode(pLNtk_min);
+  n->_r = new CofNode(pRNtk_min);
 }
 
-static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone) {
+Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone) {
   Vec_Ptr_t* vPiMapping = Vec_PtrStart(Abc_NtkPiNum(pNtkCone));
   Abc_Obj_t* pPi;
   int j;
@@ -476,40 +477,47 @@ static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone) {
 }
 
 Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
-  Abc_Ntk_t* cof = Abc_NtkDup(pNtk);
+  Abc_Ntk_t* pCof = Abc_NtkDup(pNtk);
   Vec_Ptr_t* vNodes;
-  Abc_Obj_t *pObj, *pTmp, *pFanin;
+  Abc_Obj_t *pObj, *pNext, *pFanin;
   int i;
-  assert(Abc_NtkIsStrash(cof));
-  assert(iVar < Abc_NtkCiNum(cof));
+  assert(Abc_NtkIsStrash(pCof));
+  assert(iVar < Abc_NtkCiNum(pCof));
 
   // collect the internal nodes
-  pObj = Abc_NtkCi(cof, iVar);
-  vNodes = Abc_NtkDfsReverseNodes(cof, &pObj, 1);
+  pObj = Abc_NtkCi(pCof, iVar);
+  vNodes = Abc_NtkDfsReverseNodes(pCof, &pObj, 1);
 
   // assign the cofactors of the CI node to be constants
-  pObj->pCopy = Abc_ObjNotCond(Abc_AigConst1(cof), !fPos);
+  pObj->pCopy = Abc_ObjNotCond(Abc_AigConst1(pCof), !fPos);
 
   // quantify the nodes
   Vec_PtrForEachEntry(Abc_Obj_t*, vNodes, pObj, i) {
-    int j = 0;
-    printf("%d\n", j++);
-    pFanin = Abc_ObjFanin0(pObj);
-    if (!Abc_NodeIsTravIdCurrent(pFanin)) pFanin->pCopy = pFanin;
-    pFanin = Abc_ObjFanin1(pObj);
-    if (!Abc_NodeIsTravIdCurrent(pFanin)) pFanin->pCopy = pFanin;
-    pObj->pCopy = Abc_AigAnd((Abc_Aig_t*)cof->pManFunc, Abc_ObjChild0Copy(pObj), Abc_ObjChild1Copy(pObj));
+    for (pNext = pObj ? pObj->pCopy : pObj; pObj; pObj = pNext, pNext = pObj ? pObj->pCopy : pObj) {
+      pFanin = Abc_ObjFanin0(pObj);
+      if (!Abc_NodeIsTravIdCurrent(pFanin)) {
+        pFanin->pCopy = pFanin;
+      }
+      pFanin = Abc_ObjFanin1(pObj);
+      if (!Abc_NodeIsTravIdCurrent(pFanin)) {
+        pFanin->pCopy = pFanin;
+      }
+      pObj->pCopy = Abc_AigAnd((Abc_Aig_t*)pCof->pManFunc, Abc_ObjChild0Copy(pObj), Abc_ObjChild1Copy(pObj));
+    }
   }
   Vec_PtrFree(vNodes);
 
   // update the affected COs
-  Abc_NtkForEachCo(cof, pObj, i) {
+  Abc_NtkForEachCo(pCof, pObj, i) {
     if (!Abc_NodeIsTravIdCurrent(pObj)) continue;
     pFanin = Abc_ObjFanin0(pObj);
-    pTmp = Abc_ObjNotCond(Abc_ObjChild0Copy(pObj), Abc_ObjFaninC0(pObj));
-    if (Abc_ObjRegular(pTmp) == pFanin) continue;
+    // get the result of quantification
+    pNext = Abc_ObjNotCond(Abc_ObjChild0Copy(pObj), Abc_ObjFaninC0(pObj));
+    if (Abc_ObjRegular(pNext) == pFanin) continue;
     // update the fanins of the CO
-    Abc_ObjPatchFanin(pObj, pFanin, pTmp);
+    Abc_ObjPatchFanin(pObj, pFanin, pNext);
   }
-  return cof;
+
+  Abc_NtkStrash(pCof, 0, 1, 0);
+  return pCof;
 }
