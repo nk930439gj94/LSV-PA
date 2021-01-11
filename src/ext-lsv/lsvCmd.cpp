@@ -2,6 +2,8 @@
 #include "base/main/main.h"
 #include "base/main/mainInt.h"
 #include "sat/cnf/cnf.h"
+#include "bdd/cudd/cudd.h"
+#include "bdd/cudd/cuddInt.h"
 
 static int Lsv_CommandPrintNodes(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv);
@@ -15,6 +17,7 @@ extern "C"
   Abc_Ntk_t* Abc_NtkCollapse(Abc_Ntk_t* pNtk, int fBddSizeMax, int fDualRail, int fReorder, int fReverse, int fDumpOrder, int fVerbose);
   void Abc_NtkShow(Abc_Ntk_t* pNtk0, int fGateNames, int fSeq, int fUseReverse);
   void Abc_NodeShowBdd(Abc_Obj_t * pNode, int fCompl);
+  // DdNode* Cudd_bddXor(DdManager* dd, DdNode* f, DdNode* g);
 }
 
 static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone);
@@ -22,6 +25,8 @@ static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone);
 #define AigNodeThreshold 20
 class CofactorTree;
 class CofactorNode;
+class TDD;
+class TDDNode;
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 static int BDD_nCube(DdNode* n);
 
@@ -379,7 +384,7 @@ public:
     Abc_Ntk_t* _pNtk;
     Abc_Obj_t* _dvar;
   };
-  CofactorNode* _l, * _r;
+  CofactorNode* _l, * _r; // positive cofactor, negative cofactor
 };
 
 class CofactorTree
@@ -516,6 +521,86 @@ int BDD_nCube(DdNode* n) {
   if(Cudd_IsConstant(n)) return !Cudd_IsComplement(n);
   return BDD_nCube(Cudd_T(n)) + BDD_nCube(Cudd_E(n));
 }
+
+
+class TDDNode
+{
+public:
+  TDDNode(DdNode* n) {
+    _n = n;
+    _l = _r = _x = 0;
+  }
+  DdNode* _n;
+  TDDNode* _l, * _r, * _x; // positive cofactor, negative cofactor, boolean difference
+};
+
+class TDD
+{
+public:
+  TDD(DdNode* n, DdManager* dd);
+  int TDD_rec(TDDNode* t, DdManager* dd);
+  TDDNode* _root;
+};
+
+TDD::TDD(DdNode* n, DdManager* dd) {
+  _root = new TDDNode(n);
+  TDD_rec(_root, dd);
+}
+
+int TDD::TDD_rec(TDDNode* tn, DdManager* dd) {
+  if(Cudd_IsConstant(tn->_n)) return !Cudd_IsComplement(tn->_n);
+  tn->_l = new TDDNode(Cudd_T(tn));
+  Cudd_Ref(Cudd_T(tn));
+  tn->_r = new TDDNode(Cudd_E(tn));
+  Cudd_Ref(Cudd_E(tn));
+  DdNode* x = Cudd_bddXor(dd, Cudd_T(tn), Cudd_E(tn));
+  tn->_x = new TDDNode(x);
+  Cudd_Ref(x);
+
+  int cost_l = TDD_rec(tn->_l, dd);
+  int cost_r = TDD_rec(tn->_r, dd);
+  int cost_x = TDD_rec(tn->_x, dd);
+
+  TDDNode* deleteNode;
+
+  if(cost_l > cost_r && cost_l > cost_x) {
+    // Postive Davio
+    deleteNode = tn->_l;
+    tn->_l = 0;
+    cost_l = 0;
+  }
+  else if(cost_r > cost_l && cost_r > cost_x) {
+    // negative Davio
+    deleteNode = tn->_r;
+    tn->_r = 0;
+    cost_r = 0;
+  }
+  else {
+    // Shannon
+    deleteNode = tn->_x;
+    tn->_x = 0;
+    cost_x = 0;
+  }
+
+  if(deleteNode->_l) {
+    Cudd_RecursiveDeref(dd, deleteNode->_l->_n);
+    delete deleteNode->_l;
+  }
+  if(deleteNode->_r) {
+    Cudd_RecursiveDeref(dd, deleteNode->_r->_n);
+    delete deleteNode->_r;
+  }
+  if(deleteNode->_x) {
+    Cudd_RecursiveDeref(dd, deleteNode->_x->_n);
+    delete deleteNode->_x;
+  }
+  Cudd_RecursiveDeref(dd, deleteNode->_n);
+  delete deleteNode;
+
+  return cost_l + cost_r + cost_x;
+}
+
+
 
 void lsv_esop(Abc_Ntk_t* pNtk) {
   Abc_Obj_t* pPo;
