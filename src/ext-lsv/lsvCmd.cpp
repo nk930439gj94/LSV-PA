@@ -8,10 +8,14 @@ static int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintPoUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv);
 
-extern "C" Aig_Man_t* Abc_NtkToDar(Abc_Ntk_t* pNtk, int fExors, int fRegisters);
-extern "C" Abc_Ntk_t* Abc_NtkStrash(Abc_Ntk_t* pNtk, int fAllNodes, int fCleanup, int fRecord);
-extern "C" void Abc_NtkShow(Abc_Ntk_t* pNtk0, int fGateNames, int fSeq, int fUseReverse);
-extern "C" Abc_Ntk_t* Abc_NtkCollapse(Abc_Ntk_t* pNtk, int fBddSizeMax, int fDualRail, int fReorder, int fReverse, int fDumpOrder, int fVerbose);
+extern "C"
+{
+  Aig_Man_t* Abc_NtkToDar(Abc_Ntk_t* pNtk, int fExors, int fRegisters);
+  Abc_Ntk_t* Abc_NtkStrash(Abc_Ntk_t* pNtk, int fAllNodes, int fCleanup, int fRecord);
+  Abc_Ntk_t* Abc_NtkCollapse(Abc_Ntk_t* pNtk, int fBddSizeMax, int fDualRail, int fReorder, int fReverse, int fDumpOrder, int fVerbose);
+  void Abc_NtkShow(Abc_Ntk_t* pNtk0, int fGateNames, int fSeq, int fUseReverse);
+  void Abc_NodeShowBdd(Abc_Obj_t * pNode, int fCompl);
+}
 
 static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone);
 
@@ -19,6 +23,7 @@ static Vec_Ptr_t* collectPiMapping(Abc_Ntk_t* pNtk, Abc_Ntk_t* pNtkCone);
 class CofactorTree;
 class CofactorNode;
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
+static int BDD_nCube(DdNode* n);
 
 void init(Abc_Frame_t* pAbc) {
   Cmd_CommandAdd(pAbc, "LSV", "lsv_print_nodes", Lsv_CommandPrintNodes, 0);
@@ -507,7 +512,10 @@ Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
   return pNtkRes;
 }
 
-
+int BDD_nCube(DdNode* n) {
+  if(Cudd_IsConstant(n)) return !Cudd_IsComplement(n);
+  return BDD_nCube(Cudd_T(n)) + BDD_nCube(Cudd_E(n));
+}
 
 void lsv_esop(Abc_Ntk_t* pNtk) {
   Abc_Obj_t* pPo;
