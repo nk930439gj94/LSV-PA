@@ -1,6 +1,8 @@
 #include "lsvEsop.h"
 
 CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone, Abc_Ntk_t* pNtk_origin) {
+  Abc_Obj_t* pPi; int i;
+  Abc_NtkForEachPi(pNtk_origin, pPi, i) pPi->iTemp = i;
   _root = new CofactorNode(pNtkCone);
   level = CofactorTree_rec(_root, pNtk_origin, true);
 }
@@ -9,8 +11,17 @@ int CofactorTree::CofactorTree_rec(CofactorNode* n, Abc_Ntk_t* pNtk_origin, bool
   Abc_Ntk_t* pNtk = n->_pNtk;
   if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
     Abc_Ntk_t* pNtkRes = Abc_NtkCollapse(pNtk, ABC_INFINITY, 0, 1, 0, 0, 0);
+    Abc_Obj_t* pPi; int i;
+    Abc_NtkForEachPi(pNtkRes, pPi, i) pPi->iTemp = Abc_NtkFindCi(pNtk_origin, Abc_ObjName(pPi))->iTemp;
     n->_pNtk = pNtkRes;
     if(!root) Abc_NtkDelete(pNtk);
+    // {
+    //   DdManager *dd = (DdManager *)pNtkRes->pManFunc;
+    //   Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtkRes, 0));
+    //   DdNode* bdd = (DdNode *)pNode->pData;
+    //   TDD(bdd, dd);
+    //   exit(-1);
+    // }
     return 1;
   }
   Abc_Obj_t* pPi, *pPi_min = 0;
@@ -64,24 +75,25 @@ void CofactorTree::CofactorTree_Delete_rec(CofactorNode* n, bool root) {
 
 TDD::TDD(DdNode* n, DdManager* dd) {
   _root = new TDDNode(n);
+  _dd = dd;
   Cudd_Ref(n);
-  TDD_rec(_root, dd);
+  _nCubes = TDD_rec(_root);
 }
 
-int TDD::TDD_rec(TDDNode* tn, DdManager* dd) {
+int TDD::TDD_rec(TDDNode* tn) {
   DdNode* bdd = tn->_n;
   if(Cudd_IsConstant(bdd)) return !Cudd_IsComplement(bdd);
   tn->_l = new TDDNode(Cudd_T(bdd));
   Cudd_Ref(Cudd_T(bdd));
   tn->_r = new TDDNode(Cudd_E(bdd));
   Cudd_Ref(Cudd_E(bdd));
-  DdNode* x = Cudd_bddXor(dd, Cudd_T(bdd), Cudd_E(bdd));
+  DdNode* x = Cudd_bddXor(_dd, Cudd_T(bdd), Cudd_E(bdd));
   tn->_x = new TDDNode(x);
   Cudd_Ref(x);
 
-  int cost_l = TDD_rec(tn->_l, dd);
-  int cost_r = TDD_rec(tn->_r, dd);
-  int cost_x = TDD_rec(tn->_x, dd);
+  int cost_l = TDD_rec(tn->_l);
+  int cost_r = TDD_rec(tn->_r);
+  int cost_x = TDD_rec(tn->_x);
 
   TDDNode* deleteNode;
 
@@ -104,23 +116,27 @@ int TDD::TDD_rec(TDDNode* tn, DdManager* dd) {
     cost_x = 0;
   }
 
-  if(deleteNode->_l) {
-    Cudd_RecursiveDeref(dd, deleteNode->_l->_n);
-    delete deleteNode->_l;
-  }
-  if(deleteNode->_r) {
-    Cudd_RecursiveDeref(dd, deleteNode->_r->_n);
-    delete deleteNode->_r;
-  }
-  if(deleteNode->_x) {
-    Cudd_RecursiveDeref(dd, deleteNode->_x->_n);
-    delete deleteNode->_x;
-  }
-  Cudd_RecursiveDeref(dd, deleteNode->_n);
-  delete deleteNode;
+  TDD_Delete_rec(deleteNode);
 
   return cost_l + cost_r + cost_x;
 }
+
+TDD::~TDD() {
+  TDD_Delete_rec(_root);
+}
+
+void TDD::TDD_Delete_rec(TDDNode* tn) {
+  if(tn->_l) TDD_Delete_rec(tn->_l);
+  if(tn->_r) TDD_Delete_rec(tn->_r);
+  if(tn->_x) TDD_Delete_rec(tn->_x);
+  Cudd_RecursiveDeref(_dd, tn->_n);
+  delete tn;
+}
+
+void TDD::toEsop(Cube3* commonCube, Vec_Ptr_t* cubes) {
+  
+}
+
 
 int BDD_nCube(DdNode* n) {
   if(Cudd_IsConstant(n)) return !Cudd_IsComplement(n);

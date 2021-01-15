@@ -4,9 +4,10 @@
 #include "base/abc/abc.h"
 #include "base/main/main.h"
 #include "base/main/mainInt.h"
-#include "sat/cnf/cnf.h"
 #include "bdd/cudd/cudd.h"
 #include "bdd/cudd/cuddInt.h"
+
+#include "lsvCube.h"
 
 extern "C"
 {
@@ -66,8 +67,13 @@ class TDD
 {
 public:
   TDD(DdNode* n, DdManager* dd);
-  int TDD_rec(TDDNode* t, DdManager* dd);
+  ~TDD();
+  int TDD_rec(TDDNode* t);
+  void TDD_Delete_rec(TDDNode* tn);
+  void toEsop(Cube3* commonCube, Vec_Ptr_t* cubes);
   TDDNode* _root;
+  int _nCubes;
+  DdManager* _dd;
 };
 
 #endif

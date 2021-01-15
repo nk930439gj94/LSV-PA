@@ -396,6 +396,10 @@ int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv) {
     Abc_Print(-1, "Strash first.\n");
     return 1;
   }
+  if (Abc_NtkCiNum(pNtk) != Abc_NtkPiNum(pNtk)) {
+    Abc_Print(-1, "Only support combinational circuits.\n");
+    return 1;
+  }
   lsv_esop(pNtk);
   return 0;
 
