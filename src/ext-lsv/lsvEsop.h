@@ -29,14 +29,17 @@ static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 
 class CofactorNode
 {
+friend class CofactorTree;
 public:
   CofactorNode(Abc_Ntk_t* pNtk) {
     _pNtk = pNtk;
     _l = NULL; _r = NULL;
   }
+  bool isLeaf() {return !_l;}
+private:
   union {
     Abc_Ntk_t* _pNtk;
-    Abc_Obj_t* _dvar;
+    int _dvar;
   };
   CofactorNode* _l, * _r; // positive cofactor, negative cofactor
 };
@@ -44,21 +47,31 @@ public:
 class CofactorTree
 {
 public:
-  CofactorTree(Abc_Ntk_t* pNtkCone, Abc_Ntk_t* pNtk_origin);
+  CofactorTree(Abc_Ntk_t* pNtkCone);
   ~CofactorTree();
-  int CofactorTree_rec(CofactorNode* n, Abc_Ntk_t* pNtk_origin, bool root = false);
-  void CofactorTree_Delete_rec(CofactorNode* n, bool root = false);
+  Vec_Ptr_t* toEsop();
+  static void setGlobalNtk(Abc_Ntk_t* pNtk_global) {
+    _pNtk_global = pNtk_global;
+    Abc_Obj_t* pPi; int i;
+    Abc_NtkForEachPi(pNtk_global, pPi, i) pPi->iTemp = i;
+  }
+private:
   CofactorNode* _root;
-  int level;
+  static Abc_Ntk_t* _pNtk_global;
+  void CofactorTree_rec(CofactorNode* n, bool root = false);
+  void CofactorTree_Delete_rec(CofactorNode* n, bool root = false);
+  void toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes);
 };
 
 class TDDNode
 {
+friend class TDD;
 public:
   TDDNode(DdNode* n) {
     _n = n;
     _l = _r = _x = 0;
   }
+private:
   DdNode* _n;
   TDDNode* _l, * _r, * _x; // positive cofactor, negative cofactor, boolean difference
 };
@@ -66,14 +79,17 @@ public:
 class TDD
 {
 public:
-  TDD(DdNode* n, DdManager* dd);
+  TDD(DdNode* n, Abc_Ntk_t* pNtk);
   ~TDD();
-  int TDD_rec(TDDNode* t);
-  void TDD_Delete_rec(TDDNode* tn);
-  void toEsop(Cube3* commonCube, Vec_Ptr_t* cubes);
+  void toEsop(Cube3* cube, Vec_Ptr_t* cubes);
+  int nCubes() {return _nCubes;}
+private:
   TDDNode* _root;
   int _nCubes;
-  DdManager* _dd;
+  Abc_Ntk_t* _pNtk;
+  int TDD_rec(TDDNode* t);
+  void TDD_Delete_rec(TDDNode* tn);
+  void toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes);
 };
 
 #endif

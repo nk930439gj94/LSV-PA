@@ -366,11 +366,11 @@ void lsv_esop(Abc_Ntk_t* pNtk) {
   Abc_Obj_t* pPo;
   int i;
   Abc_Ntk_t* pNtkCone;
+  CofactorTree::setGlobalNtk(pNtk);
   Abc_NtkForEachPo(pNtk, pPo, i) {
     pNtkCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(pPo), 0);
     if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
-
-    CofactorTree coftree(pNtkCone, pNtk);
+    CofactorTree coftree(pNtkCone);
 
     Abc_NtkDelete(pNtkCone);
   }

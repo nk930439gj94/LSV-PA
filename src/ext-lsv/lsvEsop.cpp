@@ -1,28 +1,22 @@
 #include "lsvEsop.h"
 
-CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone, Abc_Ntk_t* pNtk_origin) {
-  Abc_Obj_t* pPi; int i;
-  Abc_NtkForEachPi(pNtk_origin, pPi, i) pPi->iTemp = i;
+Abc_Ntk_t* CofactorTree::_pNtk_global = 0;
+
+CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone) {
+  assert(_pNtk_global);
   _root = new CofactorNode(pNtkCone);
-  level = CofactorTree_rec(_root, pNtk_origin, true);
+  CofactorTree_rec(_root, true);
 }
 
-int CofactorTree::CofactorTree_rec(CofactorNode* n, Abc_Ntk_t* pNtk_origin, bool root) {
+void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
   Abc_Ntk_t* pNtk = n->_pNtk;
   if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
     Abc_Ntk_t* pNtkRes = Abc_NtkCollapse(pNtk, ABC_INFINITY, 0, 1, 0, 0, 0);
     Abc_Obj_t* pPi; int i;
-    Abc_NtkForEachPi(pNtkRes, pPi, i) pPi->iTemp = Abc_NtkFindCi(pNtk_origin, Abc_ObjName(pPi))->iTemp;
+    Abc_NtkForEachPi(pNtkRes, pPi, i) pPi->iTemp = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iTemp;
     n->_pNtk = pNtkRes;
     if(!root) Abc_NtkDelete(pNtk);
-    // {
-    //   DdManager *dd = (DdManager *)pNtkRes->pManFunc;
-    //   Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtkRes, 0));
-    //   DdNode* bdd = (DdNode *)pNode->pData;
-    //   TDD(bdd, dd);
-    //   exit(-1);
-    // }
-    return 1;
+    return;
   }
   Abc_Obj_t* pPi, *pPi_min = 0;
   int i, min = __INT_MAX__, tmp;
@@ -47,14 +41,12 @@ int CofactorTree::CofactorTree_rec(CofactorNode* n, Abc_Ntk_t* pNtk_origin, bool
     }
   }
 
-  n->_dvar = Abc_NtkFindCi(pNtk_origin, Abc_ObjName(pPi_min));
+  n->_dvar = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi_min))->iTemp;
   if(!root) Abc_NtkDelete(pNtk);
   n->_l = new CofactorNode(pLNtk_min);
   n->_r = new CofactorNode(pRNtk_min);
-  int l_level = CofactorTree_rec(n->_l, pNtk_origin);
-  int r_level = CofactorTree_rec(n->_r, pNtk_origin);
-  if(l_level > r_level) return l_level + 1;
-  else return r_level + 1;
+  CofactorTree_rec(n->_l);
+  CofactorTree_rec(n->_r);
 }
 
 CofactorTree::~CofactorTree() {
@@ -73,21 +65,47 @@ void CofactorTree::CofactorTree_Delete_rec(CofactorNode* n, bool root) {
   }
 }
 
-TDD::TDD(DdNode* n, DdManager* dd) {
+Vec_Ptr_t* CofactorTree::toEsop() {
+  Cube3* factor = Cube3Start(Abc_NtkPiNum(_pNtk_global));
+  Vec_Ptr_t* cubes = Vec_PtrStart(0);
+  toEsop_rec(_root, factor, cubes);
+  Cube3Free(factor);
+  return cubes;
+}
+
+void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) {
+  if(n->isLeaf()) {
+    Abc_Ntk_t* pNtk = n->_pNtk;
+    Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtk, 0));
+    DdNode* bdd = (DdNode *)pNode->pData;
+    if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) bdd = Cudd_Complement(bdd);
+    TDD tdd(bdd, pNtk);
+    tdd.toEsop(factor, cubes);
+    return;
+  }
+  Cube3WriteEntry(factor, n->_dvar, 1);
+  toEsop_rec(n->_l, factor, cubes);
+  Cube3WriteEntry(factor, n->_dvar, 0);
+  toEsop_rec(n->_r, factor, cubes);
+}
+
+
+TDD::TDD(DdNode* n, Abc_Ntk_t* pNtk) {
   _root = new TDDNode(n);
-  _dd = dd;
+  _pNtk = pNtk;
   Cudd_Ref(n);
   _nCubes = TDD_rec(_root);
 }
 
 int TDD::TDD_rec(TDDNode* tn) {
   DdNode* bdd = tn->_n;
+  DdManager * dd = (DdManager *)_pNtk->pManFunc;
   if(Cudd_IsConstant(bdd)) return !Cudd_IsComplement(bdd);
   tn->_l = new TDDNode(Cudd_T(bdd));
   Cudd_Ref(Cudd_T(bdd));
   tn->_r = new TDDNode(Cudd_E(bdd));
   Cudd_Ref(Cudd_E(bdd));
-  DdNode* x = Cudd_bddXor(_dd, Cudd_T(bdd), Cudd_E(bdd));
+  DdNode* x = Cudd_bddXor(dd, Cudd_T(bdd), Cudd_E(bdd));
   tn->_x = new TDDNode(x);
   Cudd_Ref(x);
 
@@ -126,15 +144,59 @@ TDD::~TDD() {
 }
 
 void TDD::TDD_Delete_rec(TDDNode* tn) {
+  DdManager * dd = (DdManager *)_pNtk->pManFunc;
   if(tn->_l) TDD_Delete_rec(tn->_l);
   if(tn->_r) TDD_Delete_rec(tn->_r);
   if(tn->_x) TDD_Delete_rec(tn->_x);
-  Cudd_RecursiveDeref(_dd, tn->_n);
+  Cudd_RecursiveDeref(dd, tn->_n);
   delete tn;
 }
 
-void TDD::toEsop(Cube3* commonCube, Vec_Ptr_t* cubes) {
-  
+void TDD::toEsop(Cube3* cube, Vec_Ptr_t* cubes) {
+  toEsop_rec(_root, cube, cubes);
+}
+
+void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
+  DdNode* bdd = tn->_n;
+  if(Cudd_IsConstant(tn->_n)) {
+    if(!Cudd_IsComplement(tn->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    return;
+  }
+  int i = Abc_NtkPi(_pNtk, int(Cudd_Index(bdd)))->iTemp;
+  if(!tn->_l) {
+    // positive Davio
+    assert(tn->_r && tn->_x);
+    if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    toEsop_rec(tn->_r, cube, cubes);
+    Cube3WriteEntry(cube, i, 1);
+    if(Cudd_IsComplement(tn->_x->_n) && !Cudd_IsConstant(tn->_x->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    toEsop_rec(tn->_x, cube, cubes);
+    Cube3WriteEntry(cube, i, 2);
+  }
+  else if(!tn->_r) {
+    // negative Davio
+    assert(tn->_l && tn->_x);
+    if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    toEsop_rec(tn->_l, cube, cubes);
+    Cube3WriteEntry(cube, i, 0);
+    if(Cudd_IsComplement(tn->_l->_n) && !Cudd_IsConstant(tn->_l->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    toEsop_rec(tn->_l, cube, cubes);
+    Cube3WriteEntry(cube, i, 2);
+  }
+  else if(!tn->_x){
+    // Shannon
+    assert(tn->_l && tn->_r);
+    Cube3WriteEntry(cube, i, 1);
+    if(Cudd_IsComplement(tn->_l->_n) && !Cudd_IsConstant(tn->_l->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    toEsop_rec(tn->_l, cube, cubes);
+    Cube3WriteEntry(cube, i, 0);
+    if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    toEsop_rec(tn->_r, cube, cubes);
+    Cube3WriteEntry(cube, i, 2);
+  }
+  else {
+    assert(0);
+  }
 }
 
 
