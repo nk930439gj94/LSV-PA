@@ -5,6 +5,7 @@ Abc_Ntk_t* CofactorTree::_pNtk_global = 0;
 CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone) {
   assert(_pNtk_global);
   _root = new CofactorNode(pNtkCone);
+  setGlobalPiReference();
   CofactorTree_rec(_root, true);
 }
 
@@ -14,6 +15,7 @@ void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
     Abc_Ntk_t* pNtkRes = Abc_NtkCollapse(pNtk, ABC_INFINITY, 0, 1, 0, 0, 0);
     Abc_Obj_t* pPi; int i;
     Abc_NtkForEachPi(pNtkRes, pPi, i) pPi->iTemp = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iTemp;
+    Abc_NtkForEachPi(_pNtk_global, pPi, i) assert(pPi->iTemp == i);
     n->_pNtk = pNtkRes;
     if(!root) Abc_NtkDelete(pNtk);
     return;
@@ -80,7 +82,25 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
     DdNode* bdd = (DdNode *)pNode->pData;
     if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) bdd = Cudd_Complement(bdd);
     TDD tdd(bdd, pNtk);
-    tdd.toEsop(factor, cubes);
+    Cube3* tmp = Cube3Dup(factor);
+    tdd.toEsop(tmp, cubes);
+    Cube3Free(tmp);
+    static int counter = 0;
+    ++counter;
+    if(counter == 1){
+      printf("%d\n", bdd->index);
+      // printf("%s\n", Cube3ToString(factor).c_str());
+      // Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtk, 0));
+      // if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) printf("!\n");
+      // Abc_NodeShowBdd(pNode, 0);
+      // Vec_PtrClear(cubes);
+      // tdd.toEsop(factor, cubes);
+      // Cube3* cube; int k;
+      // Vec_PtrForEachEntry(Cube3*, cubes, cube, k) printf("%s\n", Cube3ToString(cube).c_str());
+      // Abc_Obj_t* pPi;
+      // Abc_NtkForEachPi(pNtk, pPi, k) printf("%s %d\n", Abc_ObjName(pPi), pPi->iTemp);
+      exit(0);
+    }
     return;
   }
   Cube3WriteEntry(factor, n->_dvar, 1);
@@ -163,6 +183,9 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
     return;
   }
   int i = Abc_NtkPi(_pNtk, int(Cudd_Index(bdd)))->iTemp;
+  Abc_Obj_t* pPi; int k;
+  Abc_NtkForEachPi(CofactorTree::_pNtk_global, pPi, k) assert(pPi->iTemp == k);
+  Abc_NtkForEachPi(_pNtk, pPi, k) assert(pPi->iTemp == Abc_NtkFindCi(CofactorTree::_pNtk_global, Abc_ObjName(pPi))->iTemp);
   if(!tn->_l) {
     // positive Davio
     assert(tn->_r && tn->_x);

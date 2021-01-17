@@ -46,14 +46,17 @@ private:
 
 class CofactorTree
 {
+friend class TDD;
 public:
   CofactorTree(Abc_Ntk_t* pNtkCone);
   ~CofactorTree();
   Vec_Ptr_t* toEsop();
   static void setGlobalNtk(Abc_Ntk_t* pNtk_global) {
     _pNtk_global = pNtk_global;
+  }
+  static void setGlobalPiReference() {
     Abc_Obj_t* pPi; int i;
-    Abc_NtkForEachPi(pNtk_global, pPi, i) pPi->iTemp = i;
+    Abc_NtkForEachPi(_pNtk_global, pPi, i) pPi->iTemp = i;
   }
 private:
   CofactorNode* _root;

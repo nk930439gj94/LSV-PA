@@ -66,12 +66,13 @@ static inline void Cube3WriteEntry( Cube3 * c, int i, int Entry )
 static inline std::string Cube3ToString( Cube3 * c )
 {
     std::string str = "";
-    int Entry, i;
+    int Entry, i, x;
     Vec_BitForEachEntry( c->_c, Entry, i ){
-        if(Cube3Entry(c, i) != 2){
+        x = Cube3Entry(c, i);
+        if(x != 2){
             if(i) str += ' ';
             str += std::to_string(i);
-            if(Cube3Entry(c, i) == 0) str += '\'';
+            if(x == 0) str += '\'';
         }
     }
     return str;
