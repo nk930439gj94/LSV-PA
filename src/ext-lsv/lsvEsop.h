@@ -18,6 +18,8 @@ extern "C"
 #define AigNodeThreshold 5
 #define Cudd_Index(node) ((Cudd_Regular(node))->index)
 
+// #define debug
+
 class CofactorTree;
 class CofactorNode;
 class TDD;
@@ -51,19 +53,14 @@ public:
   CofactorTree(Abc_Ntk_t* pNtkCone);
   ~CofactorTree();
   Vec_Ptr_t* toEsop();
-  static void setGlobalNtk(Abc_Ntk_t* pNtk_global) {
-    _pNtk_global = pNtk_global;
-  }
-  static void setGlobalPiReference() {
-    Abc_Obj_t* pPi; int i;
-    Abc_NtkForEachPi(_pNtk_global, pPi, i) pPi->iTemp = i;
-  }
+  static void setGlobalNtk(Abc_Ntk_t* pNtk_global);
 private:
   CofactorNode* _root;
   static Abc_Ntk_t* _pNtk_global;
   void CofactorTree_rec(CofactorNode* n, bool root = false);
   void CofactorTree_Delete_rec(CofactorNode* n, bool root = false);
   void toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes);
+  static void setGlobalPiReference(Abc_Ntk_t* pNtk);
 };
 
 class TDDNode
@@ -74,7 +71,7 @@ public:
     _n = n;
     _l = _r = _x = 0;
   }
-// private:
+private:
   DdNode* _n;
   TDDNode* _l, * _r, * _x; // positive cofactor, negative cofactor, boolean difference
 };
@@ -86,7 +83,7 @@ public:
   ~TDD();
   void toEsop(Cube3* cube, Vec_Ptr_t* cubes);
   int nCubes() {return _nCubes;}
-// private:
+private:
   TDDNode* _root;
   int _nCubes;
   Abc_Ntk_t* _pNtk;

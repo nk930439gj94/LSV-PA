@@ -2,10 +2,15 @@
 
 Abc_Ntk_t* CofactorTree::_pNtk_global = 0;
 
+void CofactorTree::setGlobalNtk(Abc_Ntk_t* pNtk_global) {
+  _pNtk_global = pNtk_global;
+  Abc_Obj_t* pPi; int i;
+  Abc_NtkForEachPi(pNtk_global, pPi, i) pPi->iData = i;
+}
+
 CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone) {
   assert(_pNtk_global);
   _root = new CofactorNode(pNtkCone);
-  setGlobalPiReference();
   CofactorTree_rec(_root, true);
 }
 
@@ -13,9 +18,11 @@ void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
   Abc_Ntk_t* pNtk = n->_pNtk;
   if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
     Abc_Ntk_t* pNtkRes = EsopCollapse(pNtk, 0);
+#ifdef debug
     Abc_Obj_t* pPi; int i;
-    Abc_NtkForEachPi(pNtkRes, pPi, i) pPi->iTemp = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iTemp;
-    Abc_NtkForEachPi(_pNtk_global, pPi, i) assert(pPi->iTemp == i);
+    Abc_NtkForEachPi(_pNtk_global, pPi, i) assert(pPi->iData == i);
+#endif
+    setGlobalPiReference(pNtkRes);
     n->_pNtk = pNtkRes;
     if(!root) Abc_NtkDelete(pNtk);
     return;
@@ -43,7 +50,7 @@ void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
     }
   }
 
-  n->_dvar = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi_min))->iTemp;
+  n->_dvar = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi_min))->iData;
   if(!root) Abc_NtkDelete(pNtk);
   n->_l = new CofactorNode(pLNtk_min);
   n->_r = new CofactorNode(pRNtk_min);
@@ -82,12 +89,11 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
     DdNode* bdd = (DdNode *)pNode->pData;
     if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) bdd = Cudd_Complement(bdd);
     TDD tdd(bdd, pNtk);
-    Cube3* tmp = Cube3Dup(factor);
-    tdd.toEsop(tmp, cubes);
-    Cube3Free(tmp);
+    tdd.toEsop(factor, cubes);
+
     static int counter = 0;
     ++counter;
-    if(counter == 2){
+    if(0){
       // printf("factor %s\n", Cube3ToString(factor).c_str());
       // Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtk, 0));
       // if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) printf("!\n");
@@ -97,17 +103,17 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
       // Cube3* cube; int k;
       // Vec_PtrForEachEntry(Cube3*, cubes, cube, k) printf("%s\n", Cube3ToString(cube).c_str());
       // Abc_Obj_t* pPi;
-      TDDNode* n = tdd._root;
-      TDDNode* l = n->_l, * r = n->_r;
-      TDDNode* ll = l->_l, * lr = l->_r, * rl = r->_l, * rr = r-> _r;
-      printf("%d\n", Cudd_IsComplement(n->_n));
-      printf("%d\n", Cudd_IsComplement(l->_n));
-      printf("%d\n", Cudd_IsComplement(r->_n));
-      printf("%d\n", Cudd_IsComplement(ll->_n));
-      printf("%d\n", Cudd_IsComplement(lr->_n));
-      printf("%d\n", Cudd_IsComplement(rl->_n));
-      printf("%d\n", Cudd_IsComplement(rr->_n));
-      exit(0);
+      // TDDNode* n = tdd._root;
+      // TDDNode* l = n->_l, * r = n->_r;
+      // TDDNode* ll = l->_l, * lr = l->_r, * rl = r->_l, * rr = r-> _r;
+      // printf("%d\n", Cudd_IsComplement(n->_n));
+      // printf("%d\n", Cudd_IsComplement(l->_n));
+      // printf("%d\n", Cudd_IsComplement(r->_n));
+      // printf("%d\n", Cudd_IsComplement(ll->_n));
+      // printf("%d\n", Cudd_IsComplement(lr->_n));
+      // printf("%d\n", Cudd_IsComplement(rl->_n));
+      // printf("%d\n", Cudd_IsComplement(rr->_n));
+      // exit(0);
     }
     return;
   }
@@ -116,6 +122,12 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
   Cube3WriteEntry(factor, n->_dvar, 0);
   toEsop_rec(n->_r, factor, cubes);
   Cube3WriteEntry(factor, n->_dvar, 2);
+}
+
+void CofactorTree::setGlobalPiReference(Abc_Ntk_t* pNtk) {
+  assert(_pNtk_global);
+  Abc_Obj_t* pPi; int i;
+  Abc_NtkForEachPi(pNtk, pPi, i) pPi->iData = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iData;
 }
 
 
@@ -192,13 +204,17 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
     if(!Cudd_IsComplement(tn->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     return;
   }
-  int i = Abc_NtkPi(_pNtk, int(Cudd_Index(bdd)))->iTemp;
+  int i = Abc_NtkPi(_pNtk, int(Cudd_Index(bdd)))->iData;
+#ifdef debug
   Abc_Obj_t* pPi; int k;
-  Abc_NtkForEachPi(CofactorTree::_pNtk_global, pPi, k) assert(pPi->iTemp == k);
-  Abc_NtkForEachPi(_pNtk, pPi, k) assert(pPi->iTemp == Abc_NtkFindCi(CofactorTree::_pNtk_global, Abc_ObjName(pPi))->iTemp);
+  Abc_NtkForEachPi(CofactorTree::_pNtk_global, pPi, k) assert(pPi->iData == k);
+  Abc_NtkForEachPi(_pNtk, pPi, k) assert(pPi->iData == Abc_NtkFindCi(CofactorTree::_pNtk_global, Abc_ObjName(pPi))->iData);
+#endif
   if(!tn->_l) {
     // positive Davio
+#ifdef debug
     assert(tn->_r && tn->_x);
+#endif
     if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     toEsop_rec(tn->_r, cube, cubes);
     Cube3WriteEntry(cube, i, 1);
@@ -208,7 +224,9 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
   }
   else if(!tn->_r) {
     // negative Davio
+#ifdef debug
     assert(tn->_l && tn->_x);
+#endif
     if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     toEsop_rec(tn->_l, cube, cubes);
     Cube3WriteEntry(cube, i, 0);
@@ -218,7 +236,9 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
   }
   else if(!tn->_x){
     // Shannon
+#ifdef debug
     assert(tn->_l && tn->_r);
+#endif
     Cube3WriteEntry(cube, i, 1);
     if(Cudd_IsComplement(tn->_l->_n) && !Cudd_IsConstant(tn->_l->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     toEsop_rec(tn->_l, cube, cubes);
