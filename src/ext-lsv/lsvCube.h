@@ -70,7 +70,7 @@ static inline std::string Cube3ToString( Cube3 * c )
     Vec_BitForEachEntry( c->_c, Entry, i ){
         x = Cube3Entry(c, i);
         if(x != 2){
-            if(i) str += ' ';
+            if(!str.empty()) str += ' ';
             str += std::to_string(i);
             if(x == 0) str += '\'';
             else str += ' ';

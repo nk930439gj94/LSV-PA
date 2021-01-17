@@ -12,9 +12,13 @@
 extern "C"
 {
   Abc_Ntk_t * Abc_NtkFromGlobalBdds( Abc_Ntk_t * pNtk, int fReverse );
+  extern Abc_Ntk_t * Abc_NtkDC2( Abc_Ntk_t * pNtk, int fBalance, int fUpdateLevel, int fFanout, int fPower, int fVerbose );
   void Abc_NodeShowBdd(Abc_Obj_t * pNode, int fCompl);
+  void Abc_NtkShow( Abc_Ntk_t * pNtk0, int fGateNames, int fSeq, int fUseReverse );
+
 }
 
+#define debug
 #define AigNodeThreshold 5
 #define Cudd_Index(node) ((Cudd_Regular(node))->index)
 
@@ -25,7 +29,7 @@ class CofactorNode;
 class TDD;
 class TDDNode;
 
-static Abc_Ntk_t* EsopCollapse( Abc_Ntk_t * pNtk, int fReorder );
+static Abc_Ntk_t* Collapse_reservePi( Abc_Ntk_t * pNtk, int fReorder );
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 
 
