@@ -12,7 +12,7 @@ CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone) {
 void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
   Abc_Ntk_t* pNtk = n->_pNtk;
   if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
-    Abc_Ntk_t* pNtkRes = Abc_NtkCollapse(pNtk, ABC_INFINITY, 0, 1, 0, 0, 0);
+    Abc_Ntk_t* pNtkRes = EsopCollapse(pNtk, 0);
     Abc_Obj_t* pPi; int i;
     Abc_NtkForEachPi(pNtkRes, pPi, i) pPi->iTemp = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iTemp;
     Abc_NtkForEachPi(_pNtk_global, pPi, i) assert(pPi->iTemp == i);
@@ -87,9 +87,8 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
     Cube3Free(tmp);
     static int counter = 0;
     ++counter;
-    if(counter == 1){
-      printf("%d\n", bdd->index);
-      // printf("%s\n", Cube3ToString(factor).c_str());
+    if(counter == 2){
+      // printf("factor %s\n", Cube3ToString(factor).c_str());
       // Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtk, 0));
       // if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) printf("!\n");
       // Abc_NodeShowBdd(pNode, 0);
@@ -98,7 +97,16 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
       // Cube3* cube; int k;
       // Vec_PtrForEachEntry(Cube3*, cubes, cube, k) printf("%s\n", Cube3ToString(cube).c_str());
       // Abc_Obj_t* pPi;
-      // Abc_NtkForEachPi(pNtk, pPi, k) printf("%s %d\n", Abc_ObjName(pPi), pPi->iTemp);
+      TDDNode* n = tdd._root;
+      TDDNode* l = n->_l, * r = n->_r;
+      TDDNode* ll = l->_l, * lr = l->_r, * rl = r->_l, * rr = r-> _r;
+      printf("%d\n", Cudd_IsComplement(n->_n));
+      printf("%d\n", Cudd_IsComplement(l->_n));
+      printf("%d\n", Cudd_IsComplement(r->_n));
+      printf("%d\n", Cudd_IsComplement(ll->_n));
+      printf("%d\n", Cudd_IsComplement(lr->_n));
+      printf("%d\n", Cudd_IsComplement(rl->_n));
+      printf("%d\n", Cudd_IsComplement(rr->_n));
       exit(0);
     }
     return;
@@ -107,6 +115,7 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
   toEsop_rec(n->_l, factor, cubes);
   Cube3WriteEntry(factor, n->_dvar, 0);
   toEsop_rec(n->_r, factor, cubes);
+  Cube3WriteEntry(factor, n->_dvar, 2);
 }
 
 
@@ -173,6 +182,7 @@ void TDD::TDD_Delete_rec(TDDNode* tn) {
 }
 
 void TDD::toEsop(Cube3* cube, Vec_Ptr_t* cubes) {
+  if(Cudd_IsComplement(_root->_n) && !Cudd_IsConstant(_root->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
   toEsop_rec(_root, cube, cubes);
 }
 
@@ -222,10 +232,32 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
   }
 }
 
+Abc_Ntk_t * EsopCollapse( Abc_Ntk_t * pNtk, int fReorder )
+{
+    Abc_Ntk_t * pNtkNew;
 
-int BDD_nCube(DdNode* n) {
-  if(Cudd_IsConstant(n)) return !Cudd_IsComplement(n);
-  return BDD_nCube(Cudd_T(n)) + BDD_nCube(Cudd_E(n));
+    assert( Abc_NtkIsStrash(pNtk) );
+    // compute the global BDDs
+    if ( Abc_NtkBuildGlobalBdds(pNtk, ABC_INFINITY, 1, fReorder, 0, 0) == NULL )
+        return NULL;
+
+    // create the new network
+    pNtkNew = Abc_NtkFromGlobalBdds( pNtk, 0 );
+    Abc_NtkFreeGlobalBdds( pNtk, 1 );
+    if ( pNtkNew == NULL )
+        return NULL;
+
+    if ( pNtk->pExdc )
+        pNtkNew->pExdc = Abc_NtkDup( pNtk->pExdc );
+
+    // make sure that everything is okay
+    if ( !Abc_NtkCheck( pNtkNew ) )
+    {
+        printf( "Abc_NtkCollapse: The network check has failed.\n" );
+        Abc_NtkDelete( pNtkNew );
+        return NULL;
+    }
+    return pNtkNew;
 }
 
 Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {

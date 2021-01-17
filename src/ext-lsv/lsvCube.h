@@ -73,6 +73,7 @@ static inline std::string Cube3ToString( Cube3 * c )
             if(i) str += ' ';
             str += std::to_string(i);
             if(x == 0) str += '\'';
+            else str += ' ';
         }
     }
     return str;

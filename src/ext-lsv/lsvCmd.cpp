@@ -374,7 +374,7 @@ void lsv_esop(Abc_Ntk_t* pNtk) {
     Vec_Ptr_t* cubes = coftree.toEsop();
     Cube3* cube;
     int j;
-    if(0){
+    if(i == 0){
       printf("%s\n", Abc_ObjName(pPo));
       Vec_PtrForEachEntry(Cube3*, cubes, cube, j) {
         printf("%s\n", Cube3ToString(cube).c_str());

@@ -11,11 +11,11 @@
 
 extern "C"
 {
-  Abc_Ntk_t* Abc_NtkCollapse(Abc_Ntk_t* pNtk, int fBddSizeMax, int fDualRail, int fReorder, int fReverse, int fDumpOrder, int fVerbose);
+  Abc_Ntk_t * Abc_NtkFromGlobalBdds( Abc_Ntk_t * pNtk, int fReverse );
   void Abc_NodeShowBdd(Abc_Obj_t * pNode, int fCompl);
 }
 
-#define AigNodeThreshold 20
+#define AigNodeThreshold 5
 #define Cudd_Index(node) ((Cudd_Regular(node))->index)
 
 class CofactorTree;
@@ -23,7 +23,7 @@ class CofactorNode;
 class TDD;
 class TDDNode;
 
-static int BDD_nCube(DdNode* n);
+static Abc_Ntk_t* EsopCollapse( Abc_Ntk_t * pNtk, int fReorder );
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 
 
@@ -74,7 +74,7 @@ public:
     _n = n;
     _l = _r = _x = 0;
   }
-private:
+// private:
   DdNode* _n;
   TDDNode* _l, * _r, * _x; // positive cofactor, negative cofactor, boolean difference
 };
@@ -86,7 +86,7 @@ public:
   ~TDD();
   void toEsop(Cube3* cube, Vec_Ptr_t* cubes);
   int nCubes() {return _nCubes;}
-private:
+// private:
   TDDNode* _root;
   int _nCubes;
   Abc_Ntk_t* _pNtk;
