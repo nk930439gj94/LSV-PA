@@ -375,15 +375,11 @@ void lsv_esop(Abc_Ntk_t* pNtk) {
     if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
     CofactorTree coftree(pNtkCone);
     Vec_Ptr_t* cubes = coftree.toEsop();
-    Cube3* cube;
-    int j;
-    if(1){
-      printf("%s\n", Abc_ObjName(pPo));
-      Vec_PtrForEachEntry(Cube3*, cubes, cube, j) {
-        printf("%s\n", Cube3ToString(cube).c_str());
-      }
-      printf("\n");
-    }
+    esopSimplify(cubes);
+    printf("%s\n", Abc_ObjName(pPo));
+    esopPrint(cubes);
+    printf("\n");
+    esopFree(cubes);
     Abc_NtkDelete(pNtkCone);
   }
 }

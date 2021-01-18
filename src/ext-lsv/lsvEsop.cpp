@@ -79,6 +79,7 @@ Vec_Ptr_t* CofactorTree::toEsop() {
   Vec_Ptr_t* cubes = Vec_PtrStart(0);
   toEsop_rec(_root, factor, cubes);
   Cube3Free(factor);
+  esopSimplify(cubes);
   return cubes;
 }
 
@@ -218,6 +219,7 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
   }
 }
 
+
 Abc_Ntk_t * Collapse_reservePi( Abc_Ntk_t * pNtk, int fReorder )
 {
     Abc_Ntk_t * pNtkNew;
@@ -295,12 +297,48 @@ Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
   return pNtkSimplified;
 }
 
+
 void esopSimplify(Vec_Ptr_t* cubes) {
+  int size = Vec_PtrSize(cubes);
+  assert(size);
   Cube3* cube0, * cube1;
-  int i, j;
-  Vec_PtrForEachEntry(Cube3*, cubes, cube0, i) {
-    for (j=i+1; (j < Vec_PtrSize(cubes)) && (((cube1) = (Cube3*)Vec_PtrEntry(cubes, j)), 1); j++ ) {
-      
+  int i, j, dist;
+  for(i = 0; i < size - 1; ++i) {
+    cube0 = (Cube3*)Vec_PtrEntry(cubes, i);
+    if(!cube0) continue;
+    for(j = i+1; j < size; ++j) {
+      cube1 = (Cube3*)Vec_PtrEntry(cubes, j);
+      if(!cube1) continue;
+      dist = Cube3Distance(cube0, cube1);
+      if(dist == 0) {
+        Vec_PtrWriteEntry(cubes, i, 0);
+        Vec_PtrWriteEntry(cubes, j, 0);
+        Cube3Free(cube0);
+        Cube3Free(cube1);
+      }
+      else if(dist == 1) {
+        Cube3MergeDist1(cube0, cube1);
+        Vec_PtrWriteEntry(cubes, j, 0);
+        Cube3Free(cube1);
+      }
     }
   }
+  j = 0;
+  for(i = 0; i < size; ++i) {
+    cube0 = (Cube3*)Vec_PtrEntry(cubes, i);
+    if(cube0) 
+      Vec_PtrWriteEntry(cubes, j++, cube0);
+  }
+  Vec_PtrShrink(cubes, j);
+}
+
+void esopPrint(Vec_Ptr_t* cubes) {
+  Cube3* cube; int i;
+  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) printf("%s\n", Cube3ToString(cube).c_str());
+}
+
+void esopFree(Vec_Ptr_t* cubes) {
+  Cube3* cube; int i;
+  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) Cube3Free(cube);
+  Vec_PtrFree(cubes);
 }

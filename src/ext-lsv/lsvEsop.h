@@ -30,7 +30,9 @@ class TDDNode;
 static Abc_Ntk_t* Collapse_reservePi( Abc_Ntk_t * pNtk, int fReorder );
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 
-static void esopSimplify(Vec_Ptr_t* cubes);
+void esopSimplify(Vec_Ptr_t* cubes);
+void esopPrint(Vec_Ptr_t* cubes);
+void esopFree(Vec_Ptr_t* cubes);
 
 class CofactorNode
 {
