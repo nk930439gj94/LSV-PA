@@ -375,6 +375,9 @@ void lsv_esop(Abc_Ntk_t* pNtk, int Output, int printEsop) {
   Vec_Ptr_t* esop = coftree.toEsop();
 
   printf("PO: %s\n", Abc_ObjName(pPo));
+  printf("Support #: %d\n", Abc_NtkSupportNum(pNtkCone));
+  printf("\n");
+  
   esopStats(esop);
   printf("Simplify...\n");
   esopSimplify(esop);

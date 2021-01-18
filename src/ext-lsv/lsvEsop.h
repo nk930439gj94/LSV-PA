@@ -25,8 +25,8 @@ class CofactorNode;
 class TDD;
 class TDDNode;
 
-static int Abc_NtkSupportNum(Abc_Ntk_t* pNtk);
-static void dfs_rec(Abc_Obj_t* pNode);
+int Abc_NtkSupportNum(Abc_Ntk_t* pNtk);
+void dfs_rec(Abc_Obj_t* pNode);
 
 static Abc_Ntk_t* Collapse_reservePi(Abc_Ntk_t * pNtk, int fReorder, Vec_Int_t*& perm);
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
