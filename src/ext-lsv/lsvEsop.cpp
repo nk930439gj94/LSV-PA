@@ -322,11 +322,13 @@ void esopSimplify(Vec_Ptr_t* cubes) {
         Vec_PtrWriteEntry(cubes, j, 0);
         Cube3Free(cube0);
         Cube3Free(cube1);
+        break;
       }
       else if(dist == 1) {
         Cube3MergeDist1(cube0, cube1);
         Vec_PtrWriteEntry(cubes, j, 0);
         Cube3Free(cube1);
+        break;
       }
     }
   }
