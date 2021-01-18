@@ -27,7 +27,7 @@ static inline Cube3 * Cube3Start( int nSize )
 
 static inline Cube3 * Cube3Dup( Cube3 * c )
 {
-    Cube3 *p = ABC_ALLOC(Cube3, 1);
+    Cube3 * p = ABC_ALLOC(Cube3, 1);
     p->_v = Vec_BitDup(c->_v);
     p->_c = Vec_BitDup(c->_c);
     return p;
@@ -73,10 +73,32 @@ static inline std::string Cube3ToString( Cube3 * c )
             if(!str.empty()) str += ' ';
             str += std::to_string(i);
             if(x == 0) str += '\'';
-            else str += ' ';
         }
     }
     return str;
+}
+
+static inline Vec_Bit_t * Vec_BitXor( Vec_Bit_t * p0, Vec_Bit_t * p1 )
+{
+    assert(Vec_BitSize(p0) == Vec_BitSize(p1));
+}
+
+static inline Vec_Bit_t * Vec_BitOr( Vec_Bit_t * p0, Vec_Bit_t * p1 )
+{
+    assert(Vec_BitSize(p0) == Vec_BitSize(p1));
+}
+
+static inline int Cube3Distance( Cube3 * c0, Cube3 * c1 )
+{
+    assert(Cube3Size(c0) == Cube3Size(c1));
+    Vec_Bit_t * v_xor = Vec_BitXor(c0->_v, c1->_v);
+    Vec_Bit_t * c_xor = Vec_BitXor(c0->_c, c1->_c);
+    Vec_Bit_t * diff = Vec_BitOr(v_xor, c_xor);
+    int count = Vec_BitCount(diff);
+    Vec_BitFree(v_xor);
+    Vec_BitFree(c_xor);
+    Vec_BitFree(diff);
+    return count;
 }
 
 #endif

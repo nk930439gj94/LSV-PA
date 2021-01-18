@@ -294,3 +294,13 @@ Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
   Abc_NtkDelete(pNtkRes);
   return pNtkSimplified;
 }
+
+void esopSimplify(Vec_Ptr_t* cubes) {
+  Cube3* cube0, * cube1;
+  int i, j;
+  Vec_PtrForEachEntry(Cube3*, cubes, cube0, i) {
+    for (j=i+1; (j < Vec_PtrSize(cubes)) && (((cube1) = (Cube3*)Vec_PtrEntry(cubes, j)), 1); j++ ) {
+      
+    }
+  }
+}

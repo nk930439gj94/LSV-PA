@@ -19,10 +19,8 @@ extern "C"
 }
 
 #define debug
-#define AigNodeThreshold 5
+#define AigNodeThreshold 20
 #define Cudd_Index(node) ((Cudd_Regular(node))->index)
-
-// #define debug
 
 class CofactorTree;
 class CofactorNode;
@@ -32,6 +30,7 @@ class TDDNode;
 static Abc_Ntk_t* Collapse_reservePi( Abc_Ntk_t * pNtk, int fReorder );
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);
 
+static void esopSimplify(Vec_Ptr_t* cubes);
 
 class CofactorNode
 {
