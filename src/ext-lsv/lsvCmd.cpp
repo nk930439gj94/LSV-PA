@@ -355,41 +355,64 @@ usage:
 }
 
 
-void lsv_esop(Abc_Ntk_t* pNtk) {
+void lsv_esop(Abc_Ntk_t* pNtk, int Output, int printEsop) {
   Abc_Obj_t* pPo;
-  int i;
   Abc_Ntk_t* pNtkCone;
   CofactorTree::setGlobalNtk(pNtk);
-  Abc_Obj_t* pPi;
-  // Abc_NtkForEachPi(pNtk, pPi, i) printf("%d %s\n", i, Abc_ObjName(pPi));
-  // printf("\n");
-  Vec_Ptr_t* PiNames = Vec_PtrStart(Abc_NtkPiNum(pNtk));
-  Abc_NtkForEachPi(pNtk, pPi, i) Vec_PtrWriteEntry(PiNames, i, (Abc_ObjName(pPi)));
-  Abc_NtkForEachPo(pNtk, pPo, i) {
-    pNtkCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(pPo), 0);
-    if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
-    CofactorTree coftree(pNtkCone);
-    Vec_Ptr_t* esop = coftree.toEsop();
-    printf("%s:\n", Abc_ObjName(pPo));
-    esopStats(esop);
-    esopSimplify(esop);
-    printf("\nsimpilied\n");
-    esopStats(esop);
-    printf("\n");
+  Vec_Ptr_t* PiNames = 0;
+
+  if(printEsop) {
+    PiNames = Vec_PtrStart(Abc_NtkPiNum(pNtk));
+    Abc_Obj_t* pPi; int i;
+    Abc_NtkForEachPi(pNtk, pPi, i) Vec_PtrWriteEntry(PiNames, i, (Abc_ObjName(pPi)));
+  }
+
+  pPo = Abc_NtkPo(pNtk, Output);
+  pNtkCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(pPo), 0);
+  if(Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
+
+  CofactorTree coftree(pNtkCone);
+  Vec_Ptr_t* esop = coftree.toEsop();
+
+  printf("PO: %s\n", Abc_ObjName(pPo));
+  esopStats(esop);
+  printf("Simplify...\n");
+  esopSimplify(esop);
+  esopStats(esop);
+  printf("\n");
+
+  if(printEsop) {
+    printf("Esop:\n");
     esopPrint(esop, PiNames);
     printf("\n\n");
-    esopFree(esop);
-    Abc_NtkDelete(pNtkCone);
   }
-  Vec_PtrFree(PiNames);
+  esopFree(esop);
+  Abc_NtkDelete(pNtkCone);
+  if(printEsop) Vec_PtrFree(PiNames);
 }
 
 int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv) {
   Abc_Ntk_t* pNtk = Abc_FrameReadNtk(pAbc);
   int c;
+  int Output = 0;
+  int printEsop = 0;
   Extra_UtilGetoptReset();
-  while ((c = Extra_UtilGetopt(argc, argv, "h")) != EOF) {
+  while ((c = Extra_UtilGetopt(argc, argv, "Oph")) != EOF) {
     switch (c) {
+      case 'O':
+        if(globalUtilOptind >= argc)
+        {
+          Abc_Print( -1, "Command line switch \"-O\" should be followed by an integer.\n" );
+          goto usage;
+        }
+        Output = atoi(argv[globalUtilOptind]);
+        globalUtilOptind++;
+        if(Output < 0)
+          goto usage;
+        break;
+      case 'p':
+        printEsop ^= 1;
+        break;
       case 'h':
         goto usage;
       default:
@@ -400,21 +423,36 @@ int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv) {
     Abc_Print(-1, "Empty network.\n");
     return 1;
   }
-  if (!Abc_NtkIsStrash(pNtk)) {
-    Abc_Print(-1, "Strash first.\n");
+  if(!Abc_NtkIsStrash(pNtk))
+  {
+    Abc_Print(-1, "This command can only be applied to an AIG (run \"strash\").\n");
     return 1;
   }
-  if (Abc_NtkCiNum(pNtk) != Abc_NtkPiNum(pNtk)) {
-    Abc_Print(-1, "Only support combinational circuits.\n");
+  if(Abc_NtkLatchNum(pNtk))
+  {
+    Abc_Print(-1, "Currently only works for combinational circuits.\n");
+    return 0;
+  }
+  if(argc > globalUtilOptind)
+  {
+    Abc_Print(-1, "Wrong number of auguments.\n");
+    goto usage;
+  }
+
+  if(Output >= Abc_NtkPoNum(pNtk))
+  {
+    Abc_Print(-1, "The 0-based output number (%d) is larger than the number of outputs (%d).\n", Output, Abc_NtkPoNum(pNtk));
     return 1;
   }
-  lsv_esop(pNtk);
+  lsv_esop(pNtk, Output, printEsop);
   return 0;
 
 usage:
-  Abc_Print(-2, "usage: lsv_esop [-h]\n");
-  Abc_Print(-2, "\t        esop sythesis\n");
-  Abc_Print(-2, "\t-h    : print the command usage\n");
+  Abc_Print(-2, "usage: lsv_esop [-O num] [-h]\n");
+  Abc_Print(-2, "\t         esop sythesis\n");
+  Abc_Print(-2, "\t-O num : (optional) the 0-based number of the PO to convert to esop [default = the first PO]\n");
+  Abc_Print(-2, "\t-p     : toggles print esop [default = %s]\n", printEsop? "yes": "no" );
+  Abc_Print(-2, "\t-h     : print the command usage\n");
   return 1;
 }
 

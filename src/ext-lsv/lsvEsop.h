@@ -17,7 +17,7 @@ extern "C"
   void Abc_NtkShow(Abc_Ntk_t * pNtk0, int fGateNames, int fSeq, int fUseReverse);
 }
 
-#define AigNodeThreshold 500
+#define SupportThreshold 20
 #define Cudd_Index(node) ((Cudd_Regular(node))->index)
 
 class CofactorTree;
@@ -25,9 +25,8 @@ class CofactorNode;
 class TDD;
 class TDDNode;
 
-static int SupportSize(Abc_Ntk_t * pNtk, Abc_Obj_t * pNode);
-static void SupportSize_rec(Abc_Obj_t * pNode, int& support);
-
+static int Abc_NtkSupportNum(Abc_Ntk_t* pNtk);
+static void dfs_rec(Abc_Obj_t* pNode);
 
 static Abc_Ntk_t* Collapse_reservePi(Abc_Ntk_t * pNtk, int fReorder, Vec_Int_t*& perm);
 static Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar);

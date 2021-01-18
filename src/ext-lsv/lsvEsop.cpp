@@ -16,7 +16,7 @@ CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone) {
 
 void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
   Abc_Ntk_t* pNtk = n->_pNtk;
-  if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
+  if(Abc_NtkSupportNum(pNtk) <= SupportThreshold) {
     Vec_Int_t* PiMap;
     Abc_Ntk_t* pNtkRes = Collapse_reservePi(pNtk, 1, PiMap);
     setPiMap(pNtkRes, PiMap);
@@ -219,28 +219,27 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
 }
 
 
-int SupportSize(Abc_Ntk_t * pNtk, Abc_Obj_t * pNode)
+int Abc_NtkSupportNum(Abc_Ntk_t* pNtk)
 {
-  int support;
-  Abc_NtkIncrementTravId(pNtk);
-    if(Abc_ObjIsCo(pNode))
-        SupportSize_rec(Abc_ObjFanin0(pNode), support);
-    else
-        SupportSize_rec(pNode, support);
-  return support;
+  assert(Abc_NtkPoNum(pNtk) == 1);
+  int nSupport = 0;
+  Abc_NtkIncrementTravId( pNtk );
+  dfs_rec(Abc_ObjFanin0(Abc_NtkPo(pNtk, 0)));
+  Abc_Obj_t* pPi; int i;
+  Abc_NtkForEachPi(pNtk, pPi, i){
+    if(Abc_NodeIsTravIdCurrent(pPi)) ++nSupport;
+  }
+  return nSupport;
 }
 
-void SupportSize_rec(Abc_Obj_t * pNode, int& support)
+void dfs_rec(Abc_Obj_t* pNode)
 {
-    if(Abc_NodeIsTravIdCurrent(pNode)) return;
-    Abc_NodeSetTravIdCurrent(pNode);
-    if(Abc_ObjIsCi(pNode) || (Abc_NtkIsStrash(pNode->pNtk) && Abc_ObjFaninNum(pNode) == 0)) {
-        ++support;
-        return;
-    }
-    Abc_Obj_t* pFanin; int i;
-    Abc_ObjForEachFanin(pNode, pFanin, i)
-        SupportSize_rec(Abc_ObjFanin0Ntk(pFanin), support);
+  if(Abc_NodeIsTravIdCurrent(pNode)) return;
+  Abc_NodeSetTravIdCurrent(pNode);
+  if(Abc_ObjIsPi(pNode)) return;
+  Abc_Obj_t* pFanin; int i;
+  Abc_ObjForEachFanin(pNode, pFanin, i)
+    dfs_rec(Abc_ObjFanin0Ntk(pFanin));
 }
 
 
