@@ -68,6 +68,11 @@ static inline void Cube3WriteEntry( Cube3 * c, int i, int Entry )
     }
 }
 
+static inline int Cube3CountLiteral( Cube3 * c )
+{
+    return Vec_BitCount(c->_c);
+}
+
 static inline void Cube3MergeDist1( Cube3 * c0, Cube3 * c1 )
 {
     // merge cubes with distance equal to 1
@@ -87,7 +92,7 @@ static inline void Cube3MergeDist1( Cube3 * c0, Cube3 * c1 )
     }
 }
 
-static inline std::string Cube3ToString( Cube3 * c )
+static inline std::string Cube3ToString( Cube3 * c, Vec_Ptr_t* PiNames = 0 )
 {
     std::string str = "";
     int x;
@@ -95,7 +100,8 @@ static inline std::string Cube3ToString( Cube3 * c )
         x = Cube3Entry(c, i);
         if(x != 2){
             if(!str.empty()) str += ' ';
-            str += std::to_string(i);
+            if(PiNames) str += std::string((char*)Vec_PtrEntry(PiNames, i));
+            else str += std::to_string(i);
             if(x == 0) str += '\'';
         }
     }

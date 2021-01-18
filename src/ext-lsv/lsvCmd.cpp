@@ -368,20 +368,27 @@ void lsv_esop(Abc_Ntk_t* pNtk) {
   Abc_Ntk_t* pNtkCone;
   CofactorTree::setGlobalNtk(pNtk);
   Abc_Obj_t* pPi;
-  Abc_NtkForEachPi(pNtk, pPi, i) printf("%d %s\n", i, Abc_ObjName(pPi));
-  printf("\n");
+  // Abc_NtkForEachPi(pNtk, pPi, i) printf("%d %s\n", i, Abc_ObjName(pPi));
+  // printf("\n");
+  Vec_Ptr_t* PiNames = Vec_PtrStart(Abc_NtkPiNum(pNtk));
+  Abc_NtkForEachPi(pNtk, pPi, i) Vec_PtrWriteEntry(PiNames, i, (Abc_ObjName(pPi)));
   Abc_NtkForEachPo(pNtk, pPo, i) {
     pNtkCone = Abc_NtkCreateCone(pNtk, Abc_ObjFanin0(pPo), Abc_ObjName(pPo), 0);
     if (Abc_ObjFaninC0(pPo)) Abc_ObjSetFaninC(Abc_NtkPo(pNtkCone, 0), 0);
     CofactorTree coftree(pNtkCone);
-    Vec_Ptr_t* cubes = coftree.toEsop();
-    esopSimplify(cubes);
-    printf("%s\n", Abc_ObjName(pPo));
-    esopPrint(cubes);
+    Vec_Ptr_t* esop = coftree.toEsop();
+    printf("%s:\n", Abc_ObjName(pPo));
+    esopStats(esop);
+    esopSimplify(esop);
+    printf("\nsimpilied\n");
+    esopStats(esop);
     printf("\n");
-    esopFree(cubes);
+    esopPrint(esop, PiNames);
+    printf("\n\n");
+    esopFree(esop);
     Abc_NtkDelete(pNtkCone);
   }
+  Vec_PtrFree(PiNames);
 }
 
 int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv) {

@@ -249,7 +249,7 @@ Abc_Ntk_t * Collapse_reservePi( Abc_Ntk_t * pNtk, int fReorder )
 }
 
 Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
-  Abc_Ntk_t* pCof = Abc_NtkDup(pNtk), *pNtkRes, *pNtkSimplified;
+  Abc_Ntk_t* pCof = Abc_NtkDup(pNtk), *pNtkRes;
   Vec_Ptr_t* vNodes;
   Abc_Obj_t *pObj, *pNext, *pFanin;
   int i;
@@ -292,11 +292,18 @@ Abc_Ntk_t* Cofactor(Abc_Ntk_t* pNtk, bool fPos, int iVar) {
 
   pNtkRes = Abc_NtkStrash(pCof, 0, 1, 0);
   Abc_NtkDelete(pCof);
-  pNtkSimplified = Abc_NtkDC2(pNtkRes, 0, 0, 1, 0, 0);
-  Abc_NtkDelete(pNtkRes);
-  return pNtkSimplified;
+  Abc_NtkRewrite(pNtkRes, 1, 0, 0, 0, 0);
+  return pNtkRes;
 }
 
+void esopStats(Vec_Ptr_t* cubes) {
+  int n_cubes = Vec_PtrSize(cubes);
+  int n_literals = 0;
+  Cube3* cube; int i;
+  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) n_literals += Cube3CountLiteral(cube);
+  printf("Cube #   : %d\n", n_cubes);
+  printf("Literal #: %d\n", n_literals);
+}
 
 void esopSimplify(Vec_Ptr_t* cubes) {
   int size = Vec_PtrSize(cubes);
@@ -332,9 +339,9 @@ void esopSimplify(Vec_Ptr_t* cubes) {
   Vec_PtrShrink(cubes, j);
 }
 
-void esopPrint(Vec_Ptr_t* cubes) {
+void esopPrint(Vec_Ptr_t* cubes, Vec_Ptr_t* PiNames) {
   Cube3* cube; int i;
-  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) printf("%s\n", Cube3ToString(cube).c_str());
+  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) printf("%s\n", Cube3ToString(cube, PiNames).c_str());
 }
 
 void esopFree(Vec_Ptr_t* cubes) {
