@@ -12,14 +12,7 @@ static int Lsv_CommandPrintSopUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandPrintPoUnate(Abc_Frame_t* pAbc, int argc, char** argv);
 static int Lsv_CommandEsop(Abc_Frame_t* pAbc, int argc, char** argv);
 
-extern "C"
-{
-  Aig_Man_t* Abc_NtkToDar(Abc_Ntk_t* pNtk, int fExors, int fRegisters);
-  Abc_Ntk_t* Abc_NtkStrash(Abc_Ntk_t* pNtk, int fAllNodes, int fCleanup, int fRecord);
-  Abc_Ntk_t* Abc_NtkCollapse(Abc_Ntk_t* pNtk, int fBddSizeMax, int fDualRail, int fReorder, int fReverse, int fDumpOrder, int fVerbose);
-  void Abc_NtkShow(Abc_Ntk_t* pNtk0, int fGateNames, int fSeq, int fUseReverse);
-  void Abc_NodeShowBdd(Abc_Obj_t * pNode, int fCompl);
-}
+extern "C" Aig_Man_t* Abc_NtkToDar(Abc_Ntk_t* pNtk, int fExors, int fRegisters);
 
 void init(Abc_Frame_t* pAbc) {
   Cmd_CommandAdd(pAbc, "LSV", "lsv_print_nodes", Lsv_CommandPrintNodes, 0);

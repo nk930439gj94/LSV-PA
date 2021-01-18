@@ -12,11 +12,9 @@
 extern "C"
 {
   Abc_Ntk_t * Abc_NtkFromGlobalBdds( Abc_Ntk_t * pNtk, int fReverse );
-  int Abc_NtkMinimumBase2( Abc_Ntk_t * pNtk );
   int Abc_NtkRewrite( Abc_Ntk_t * pNtk, int fUpdateLevel, int fUseZeros, int fVerbose, int fVeryVerbose, int fPlaceEnable );
   void Abc_NodeShowBdd(Abc_Obj_t * pNode, int fCompl);
   void Abc_NtkShow(Abc_Ntk_t * pNtk0, int fGateNames, int fSeq, int fUseReverse);
-
 }
 
 #define AigNodeThreshold 500

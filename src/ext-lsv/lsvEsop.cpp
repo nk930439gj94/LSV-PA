@@ -256,7 +256,7 @@ Abc_Ntk_t* Collapse_reservePi(Abc_Ntk_t * pNtk, int fReorder, Vec_Int_t*& PiMap)
     pNtkNew = Abc_NtkFromGlobalBdds(pNtk, 0);
     Abc_NtkFreeGlobalBdds(pNtk, 1);
 
-    Abc_NtkMinimumBase2(pNtkNew);
+    // Abc_NtkMinimumBase2(pNtkNew);
 
     if(pNtk->pExdc) pNtkNew->pExdc = Abc_NtkDup(pNtk->pExdc);
 

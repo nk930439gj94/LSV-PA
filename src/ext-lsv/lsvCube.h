@@ -105,7 +105,7 @@ static inline std::string Cube3ToString( Cube3 * c, Vec_Ptr_t* PiNames = 0 )
             if(x == 0) str += '\'';
         }
     }
-    return str;
+    return str.empty() ? "\"T\"" : str;
 }
 
 static inline Vec_Bit_t * Vec_BitXor( Vec_Bit_t * p0, Vec_Bit_t * p1, int realSize )
