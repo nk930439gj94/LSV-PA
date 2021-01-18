@@ -17,13 +17,11 @@ CofactorTree::CofactorTree(Abc_Ntk_t* pNtkCone) {
 void CofactorTree::CofactorTree_rec(CofactorNode* n, bool root) {
   Abc_Ntk_t* pNtk = n->_pNtk;
   if(Abc_NtkNodeNum(pNtk) <= AigNodeThreshold) {
-    Abc_Ntk_t* pNtkRes = Collapse_reservePi(pNtk, 0);
-#ifdef debug
-    Abc_Obj_t* pPi; int i;
-    Abc_NtkForEachPi(_pNtk_global, pPi, i) assert(pPi->iData == i);
-#endif
-    setGlobalPiReference(pNtkRes);
+    Vec_Int_t* PiMap;
+    Abc_Ntk_t* pNtkRes = Collapse_reservePi(pNtk, 1, PiMap);
+    setPiMap(pNtkRes, PiMap);
     n->_pNtk = pNtkRes;
+    n->_PiMap = PiMap;
     if(!root) Abc_NtkDelete(pNtk);
     return;
   }
@@ -63,7 +61,7 @@ CofactorTree::~CofactorTree() {
 }
 
 void CofactorTree::CofactorTree_Delete_rec(CofactorNode* n, bool root) {
-  if(n->_l) {
+  if(!n->isLeaf()) {
     CofactorTree_Delete_rec(n->_l);
     delete n->_l;
     CofactorTree_Delete_rec(n->_r);
@@ -71,6 +69,7 @@ void CofactorTree::CofactorTree_Delete_rec(CofactorNode* n, bool root) {
   }
   else {
     if(!root) Abc_NtkDelete(n->_pNtk);
+    Vec_IntFree(n->_PiMap);
   }
 }
 
@@ -89,7 +88,7 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
     Abc_Obj_t* pNode = Abc_ObjFanin0(Abc_NtkPo(pNtk, 0));
     DdNode* bdd = (DdNode *)pNode->pData;
     if(Abc_ObjFaninC0(Abc_NtkPo(pNtk, 0))) bdd = Cudd_Complement(bdd);
-    TDD tdd(bdd, pNtk);
+    TDD tdd(bdd, pNtk, n->_PiMap);
     tdd.toEsop(factor, cubes);
     return;
   }
@@ -100,16 +99,21 @@ void CofactorTree::toEsop_rec(CofactorNode* n, Cube3* factor, Vec_Ptr_t* cubes) 
   Cube3WriteEntry(factor, n->_dvar, 2);
 }
 
-void CofactorTree::setGlobalPiReference(Abc_Ntk_t* pNtk) {
+void CofactorTree::setPiMap(Abc_Ntk_t* pNtk, Vec_Int_t* PiMap) {
   assert(_pNtk_global);
+  int entry;
   Abc_Obj_t* pPi; int i;
-  Abc_NtkForEachPi(pNtk, pPi, i) pPi->iData = Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iData;
+  Vec_IntForEachEntry(PiMap, entry, i) {
+    pPi = Abc_NtkPi(pNtk, entry);
+    Vec_IntWriteEntry(PiMap, i, Abc_NtkFindCi(_pNtk_global, Abc_ObjName(pPi))->iData);
+  }
 }
 
 
-TDD::TDD(DdNode* n, Abc_Ntk_t* pNtk) {
+TDD::TDD(DdNode* n, Abc_Ntk_t* pNtk, Vec_Int_t* PiMap) {
   _root = new TDDNode(n);
   _pNtk = pNtk;
+  _PiMap = PiMap;
   Cudd_Ref(n);
   _nCubes = TDD_rec(_root);
 }
@@ -180,12 +184,7 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
     if(!Cudd_IsComplement(tn->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     return;
   }
-  int i = Abc_NtkPi(_pNtk, int(Cudd_Index(bdd)))->iData;
-#ifdef debug
-  Abc_Obj_t* pPi; int k;
-  Abc_NtkForEachPi(CofactorTree::_pNtk_global, pPi, k) assert(pPi->iData == k);
-  Abc_NtkForEachPi(_pNtk, pPi, k) assert(pPi->iData == Abc_NtkFindCi(CofactorTree::_pNtk_global, Abc_ObjName(pPi))->iData);
-#endif
+  int i = Vec_IntEntry(_PiMap, int(Cudd_Index(bdd)));
   if(!tn->_l) {
     // positive Davio
     if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
@@ -197,10 +196,10 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
   }
   else if(!tn->_r) {
     // negative Davio
-    if(Cudd_IsComplement(tn->_r->_n) && !Cudd_IsConstant(tn->_r->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    if(Cudd_IsComplement(tn->_l->_n) && !Cudd_IsConstant(tn->_l->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     toEsop_rec(tn->_l, cube, cubes);
     Cube3WriteEntry(cube, i, 0);
-    if(Cudd_IsComplement(tn->_l->_n) && !Cudd_IsConstant(tn->_l->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
+    if(Cudd_IsComplement(tn->_x->_n) && !Cudd_IsConstant(tn->_x->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
     toEsop_rec(tn->_l, cube, cubes);
     Cube3WriteEntry(cube, i, 2);
   }
@@ -220,31 +219,47 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
 }
 
 
-Abc_Ntk_t * Collapse_reservePi( Abc_Ntk_t * pNtk, int fReorder )
+int SupportSize(Abc_Ntk_t * pNtk, Abc_Obj_t * pNode)
 {
-    Abc_Ntk_t * pNtkNew;
+  int support;
+  Abc_NtkIncrementTravId(pNtk);
+    if(Abc_ObjIsCo(pNode))
+        SupportSize_rec(Abc_ObjFanin0(pNode), support);
+    else
+        SupportSize_rec(pNode, support);
+  return support;
+}
 
-    assert( Abc_NtkIsStrash(pNtk) );
-    // compute the global BDDs
-    if ( Abc_NtkBuildGlobalBdds(pNtk, ABC_INFINITY, 1, fReorder, 0, 0) == NULL )
-        return NULL;
-
-    // create the new network
-    pNtkNew = Abc_NtkFromGlobalBdds( pNtk, 0 );
-    Abc_NtkFreeGlobalBdds( pNtk, 1 );
-    if ( pNtkNew == NULL )
-        return NULL;
-
-    if ( pNtk->pExdc )
-        pNtkNew->pExdc = Abc_NtkDup( pNtk->pExdc );
-
-    // make sure that everything is okay
-    if ( !Abc_NtkCheck( pNtkNew ) )
-    {
-        printf( "Abc_NtkCollapse: The network check has failed.\n" );
-        Abc_NtkDelete( pNtkNew );
-        return NULL;
+void SupportSize_rec(Abc_Obj_t * pNode, int& support)
+{
+    if(Abc_NodeIsTravIdCurrent(pNode)) return;
+    Abc_NodeSetTravIdCurrent(pNode);
+    if(Abc_ObjIsCi(pNode) || (Abc_NtkIsStrash(pNode->pNtk) && Abc_ObjFaninNum(pNode) == 0)) {
+        ++support;
+        return;
     }
+    Abc_Obj_t* pFanin; int i;
+    Abc_ObjForEachFanin(pNode, pFanin, i)
+        SupportSize_rec(Abc_ObjFanin0Ntk(pFanin), support);
+}
+
+
+Abc_Ntk_t* Collapse_reservePi(Abc_Ntk_t * pNtk, int fReorder, Vec_Int_t*& PiMap)
+{
+    Abc_Ntk_t* pNtkNew;
+    Abc_NtkBuildGlobalBdds(pNtk, ABC_INFINITY, 1, fReorder, 0, 0);
+
+    DdManager* dd = (DdManager *)Abc_NtkGlobalBddMan(pNtk);
+    PiMap = Vec_IntStart(dd->size);
+    for(int i=0; i<dd->size; ++i) Vec_IntWriteEntry(PiMap, i, dd->invperm[i]);
+
+    pNtkNew = Abc_NtkFromGlobalBdds(pNtk, 0);
+    Abc_NtkFreeGlobalBdds(pNtk, 1);
+
+    Abc_NtkMinimumBase2(pNtkNew);
+
+    if(pNtk->pExdc) pNtkNew->pExdc = Abc_NtkDup(pNtk->pExdc);
+
     return pNtkNew;
 }
 
