@@ -53,7 +53,7 @@ else
 endif
 
 ARCHFLAGS := $(ARCHFLAGS)
-
+OPTFLAGS  := -O3
 OPTFLAGS  ?= -g -O
 
 CFLAGS    += -Wall -Wno-unused-function -Wno-write-strings -Wno-sign-compare $(ARCHFLAGS)
