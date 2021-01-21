@@ -60,6 +60,7 @@ static inline void Cube3WriteEntry( Cube3 * c, int i, int Entry )
 {
     assert(Entry>=0 && Entry<=2);
     if(Entry == 2) {
+        Vec_BitWriteEntry(c->_v, i, 0);
         Vec_BitWriteEntry(c->_c, i, 0);
     }
     else{
