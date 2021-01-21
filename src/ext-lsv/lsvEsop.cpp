@@ -200,7 +200,7 @@ void TDD::toEsop_rec(TDDNode* tn, Cube3* cube, Vec_Ptr_t* cubes) {
     toEsop_rec(tn->_l, cube, cubes);
     Cube3WriteEntry(cube, i, 0);
     if(Cudd_IsComplement(tn->_x->_n) && !Cudd_IsConstant(tn->_x->_n)) Vec_PtrPush(cubes, Cube3Dup(cube));
-    toEsop_rec(tn->_l, cube, cubes);
+    toEsop_rec(tn->_x, cube, cubes);
     Cube3WriteEntry(cube, i, 2);
   }
   else if(!tn->_x){
