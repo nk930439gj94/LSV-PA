@@ -92,20 +92,21 @@ static inline void Cube3MergeDist1( Cube3 * c0, Cube3 * c1 )
     }
 }
 
-static inline std::string Cube3ToString( Cube3 * c, Vec_Ptr_t* PiNames = 0 )
+static inline void Cube3ToString( Cube3 * c, char* str, Vec_Ptr_t* PiNames = 0 )
 {
-    std::string str = "";
     int x;
+    bool t = true;
     for(int i = 0; i < Cube3Size(c); ++i){
         x = Cube3Entry(c, i);
         if(x != 2){
-            if(!str.empty()) str += ' ';
-            if(PiNames) str += std::string((char*)Vec_PtrEntry(PiNames, i));
-            else str += std::to_string(i);
-            if(x == 0) str += '\'';
+            t = false;
+            if(PiNames) str += sprintf(str, "%s", (char*)Vec_PtrEntry(PiNames, i));
+            else str += sprintf(str, "%d", i);
+            if(x == 0) str += sprintf(str, "\'");
+            str += sprintf(str, " ");
         }
     }
-    return str.empty() ? "\"T\"" : str;
+    if(t) sprintf(str, "\"T\" ");
 }
 
 static inline Vec_Bit_t * Vec_BitXor( Vec_Bit_t * p0, Vec_Bit_t * p1, int realSize )

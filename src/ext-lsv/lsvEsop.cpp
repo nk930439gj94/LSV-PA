@@ -357,7 +357,11 @@ void esopSimplify(Vec_Ptr_t* cubes) {
 
 void esopPrint(Vec_Ptr_t* cubes, Vec_Ptr_t* PiNames) {
   Cube3* cube; int i;
-  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) printf("%s\n", Cube3ToString(cube, PiNames).c_str());
+  char str[1024];
+  Vec_PtrForEachEntry(Cube3*, cubes, cube, i) {
+    Cube3ToString(cube, str, PiNames);
+    printf("%s\n", str);
+  }
 }
 
 void esopFree(Vec_Ptr_t* cubes) {
